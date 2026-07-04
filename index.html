@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>منظومة متابعة التعليم — محافظة بدر</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+:root{
+  --bg:#F3F5F1;
+  --surface:#FFFFFF;
+  --ink:#182620;
+  --muted:#5C6B62;
+  --primary:#145C4B;
+  --primary-dark:#0D3E33;
+  --primary-soft:#E3EEE9;
+  --accent:#C9A227;
+  --accent-soft:#F6EDCB;
+  --danger:#B3423A;
+  --danger-soft:#F7E4E1;
+  --info:#2E5C8A;
+  --info-soft:#E4ECF4;
+  --ok:#2F7A4D;
+  --ok-soft:#E4F1E7;
+  --border:#E1E4DE;
+  --radius:12px;
+  --shadow:0 1px 2px rgba(24,38,32,.06), 0 6px 20px rgba(24,38,32,.05);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'IBM Plex Sans Arabic', Tahoma, Arial, sans-serif;
+  font-size:14.5px;
+  line-height:1.6;
+}
+h1,h2,h3,h4,.brand,.nav-label,.stat-num{font-family:'Tajawal', Tahoma, Arial, sans-serif}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:14px}
+a{color:var(--primary)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#cfd6cf;border-radius:8px}
+
+/* ---------- layout ---------- */
+#app{display:flex;min-height:100vh}
+#sidebar{
+  width:268px;flex:none;background:linear-gradient(180deg,var(--primary-dark),var(--primary) 70%);
+  color:#EAF3EF;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;
+}
+#sidebar .brand{padding:22px 20px 14px;border-bottom:1px solid rgba(255,255,255,.12)}
+#sidebar .brand .eyebrow{font-size:11px;letter-spacing:.5px;color:var(--accent);font-weight:700;text-transform:none}
+#sidebar .brand h1{font-size:18px;margin:4px 0 2px;font-weight:800;color:#fff}
+#sidebar .brand .sub{font-size:12px;color:#BFD8CD}
+nav.navlist{padding:10px 10px 20px;flex:1}
+.nav-link{
+  display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;color:#DDEFE7;
+  text-decoration:none;font-size:13.6px;margin:2px 0;border:1px solid transparent;
+}
+.nav-link .dot{width:7px;height:7px;border-radius:50%;background:#7FBFA9;flex:none}
+.nav-link:hover{background:rgba(255,255,255,.08)}
+.nav-link.active{background:#fff;color:var(--primary-dark);font-weight:700}
+.nav-link.active .dot{background:var(--accent)}
+details.navgroup{margin:4px 0}
+details.navgroup>summary{
+  list-style:none;cursor:pointer;padding:9px 12px;border-radius:9px;font-size:13px;font-weight:700;
+  color:#BFD8CD;display:flex;align-items:center;justify-content:space-between;
+}
+details.navgroup>summary::-webkit-details-marker{display:none}
+details.navgroup>summary:after{content:'‹';transform:rotate(-90deg);display:inline-block;transition:.15s}
+details.navgroup[open]>summary:after{transform:rotate(0deg)}
+.navsection-title{padding:16px 14px 4px;font-size:11px;color:var(--accent);font-weight:800;letter-spacing:.4px}
+.navgroup .nav-link{margin-inline-start:10px;font-size:13px}
+#sidebar .userbox{padding:14px 18px;border-top:1px solid rgba(255,255,255,.12);font-size:12.5px}
+#sidebar .userbox .name{font-weight:700;color:#fff}
+#sidebar .userbox .role{color:#BFD8CD;font-size:11.5px}
+#sidebar .logout{margin-top:8px;width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:7px;border-radius:8px;font-size:12.5px}
+#sidebar .logout:hover{background:rgba(255,255,255,.18)}
+
+#main{flex:1;min-width:0;display:flex;flex-direction:column}
+#topbar{
+  background:var(--surface);border-bottom:1px solid var(--border);padding:14px 26px;
+  display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:5;
+}
+#topbar h2{margin:0;font-size:19px;font-weight:800}
+#topbar .crumb{font-size:12px;color:var(--muted);margin-top:2px}
+#content{padding:22px 26px 60px;flex:1}
+#menuToggle{display:none}
+
+/* ---------- cards / stats ---------- */
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:22px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);border-inline-start:5px solid var(--primary)}
+.stat-card.accent{border-inline-start-color:var(--accent)}
+.stat-card.info{border-inline-start-color:var(--info)}
+.stat-card.danger{border-inline-start-color:var(--danger)}
+.stat-card .label{font-size:12px;color:var(--muted);margin-bottom:6px}
+.stat-num{font-size:28px;font-weight:800;color:var(--primary-dark)}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:20px}
+.panel h3{margin:0 0 14px;font-size:15.5px;font-weight:800;display:flex;align-items:center;gap:8px}
+.panel h3 .sq{width:9px;height:9px;background:var(--accent);display:inline-block;border-radius:2px}
+
+.bar-row{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:12.8px}
+.bar-row .bl{width:110px;flex:none;color:var(--muted)}
+.bar-track{flex:1;background:var(--bg);border-radius:6px;height:12px;overflow:hidden;border:1px solid var(--border)}
+.bar-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--accent))}
+.bar-row .bn{width:34px;text-align:left;flex:none;font-weight:700}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--surface);color:var(--ink);padding:8px 14px;border-radius:9px;font-size:13px;font-weight:600;transition:.12s}
+.btn:hover{border-color:var(--primary)}
+.btn-primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-dark)}
+.btn-accent{background:var(--accent);border-color:var(--accent);color:#402e05}
+.btn-danger{background:var(--danger-soft);border-color:var(--danger);color:var(--danger)}
+.btn-ghost{background:transparent;border-color:transparent;color:var(--primary)}
+.btn-sm{padding:5px 10px;font-size:12px;border-radius:7px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;align-items:center}
+.toolbar .grow{flex:1}
+.search-box{padding:8px 12px;border:1px solid var(--border);border-radius:9px;min-width:200px;background:var(--surface)}
+
+/* ---------- table ---------- */
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius)}
+table.data{width:100%;border-collapse:collapse;background:var(--surface);font-size:13px;min-width:640px}
+table.data th{background:var(--primary-soft);color:var(--primary-dark);font-weight:700;text-align:right;padding:10px 12px;white-space:nowrap;border-bottom:1px solid var(--border)}
+table.data td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top;max-width:260px}
+table.data tr:last-child td{border-bottom:none}
+table.data tr:hover td{background:#FAFBF9}
+.empty-row td{text-align:center;color:var(--muted);padding:34px}
+
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700}
+.badge .d{width:6px;height:6px;border-radius:50%}
+.badge.st-new{background:var(--info-soft);color:var(--info)} .badge.st-new .d{background:var(--info)}
+.badge.st-progress{background:var(--accent-soft);color:#8a6d0c} .badge.st-progress .d{background:var(--accent)}
+.badge.st-done{background:var(--ok-soft);color:var(--ok)} .badge.st-done .d{background:var(--ok)}
+.badge.st-closed{background:#ECEDEA;color:var(--muted)} .badge.st-closed .d{background:var(--muted)}
+.badge.st-active{background:var(--ok-soft);color:var(--ok)} .badge.st-active .d{background:var(--ok)}
+.badge.st-inactive{background:#ECEDEA;color:var(--muted)} .badge.st-inactive .d{background:var(--muted)}
+.badge.role-admin{background:var(--accent-soft);color:#8a6d0c}
+.badge.role-editor{background:var(--info-soft);color:var(--info)}
+.badge.role-viewer{background:#ECEDEA;color:var(--muted)}
+.badge.status-pending{background:var(--accent-soft);color:#8a6d0c}
+.badge.status-approved{background:var(--ok-soft);color:var(--ok)}
+.badge.status-rejected{background:var(--danger-soft);color:var(--danger)}
+
+.pill-link{font-size:11.5px;padding:5px 10px;border-radius:20px;background:var(--info-soft);color:var(--info);text-decoration:none;display:inline-flex;gap:5px;align-items:center;border:1px solid transparent}
+.pill-link:hover{border-color:var(--info)}
+.linkbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+
+/* ---------- forms / modal ---------- */
+.field{margin-bottom:13px}
+.field label{display:block;font-size:12.5px;font-weight:700;margin-bottom:5px;color:var(--muted)}
+.field input,.field select,.field textarea{
+  width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--ink);
+}
+.field textarea{min-height:70px;resize:vertical}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--primary);outline-offset:1px;border-color:var(--primary)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:560px){.field-row{grid-template-columns:1fr}}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(15,25,20,.55);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:34px 14px;overflow-y:auto}
+.modal-overlay.open{display:flex}
+.modal-box{background:#fff;border-radius:14px;width:100%;max-width:560px;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.modal-box h3{margin:0 0 4px;font-size:17px;font-weight:800}
+.modal-box .modal-sub{font-size:12.5px;color:var(--muted);margin-bottom:16px}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;border-top:1px solid var(--border);padding-top:14px}
+.modal-close{position:absolute}
+
+/* ---------- login ---------- */
+#loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:
+  radial-gradient(circle at 12% 10%, rgba(201,162,39,.18), transparent 40%),
+  radial-gradient(circle at 90% 85%, rgba(20,92,75,.25), transparent 45%), var(--primary-dark);
+  padding:24px}
+.login-wrap{width:100%;max-width:430px}
+.login-brand{text-align:center;margin-bottom:18px;color:#EAF3EF}
+.login-brand .eyebrow{color:var(--accent);font-weight:700;font-size:12px;letter-spacing:.5px}
+.login-brand h1{font-size:22px;margin:6px 0 4px;font-weight:800;color:#fff}
+.login-brand .sub{font-size:12.5px;color:#BFD8CD}
+.login-card{background:#fff;border-radius:16px;padding:22px 22px 26px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.authtabs{display:flex;background:var(--bg);border-radius:10px;padding:4px;margin-bottom:18px}
+.authtabs button{flex:1;padding:8px 4px;border:none;background:transparent;border-radius:8px;font-weight:700;font-size:12.8px;color:var(--muted)}
+.authtabs button.active{background:var(--primary);color:#fff}
+.auth-msg{font-size:12.8px;padding:10px 12px;border-radius:8px;margin-bottom:12px}
+.auth-msg.err{background:var(--danger-soft);color:var(--danger)}
+.auth-msg.ok{background:var(--ok-soft);color:var(--ok)}
+.auth-msg.info{background:var(--info-soft);color:var(--info)}
+.hint-box{margin-top:14px;font-size:11.5px;color:#BFD8CD;text-align:center;line-height:1.8}
+
+/* ---------- toast ---------- */
+#toastRoot{position:fixed;bottom:20px;left:20px;z-index:200;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--primary-dark);color:#fff;padding:11px 16px;border-radius:9px;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.25);animation:toastin .18s ease}
+.toast.err{background:var(--danger)}
+@keyframes toastin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.mobilebar{display:none}
+@media(max-width:900px){
+  #sidebar{position:fixed;right:0;top:0;z-index:60;transform:translateX(100%);transition:.2s;box-shadow:0 0 40px rgba(0,0,0,.3)}
+  #sidebar.open{transform:translateX(0)}
+  .mobilebar{display:flex;align-items:center;gap:10px;background:var(--primary-dark);color:#fff;padding:12px 16px;position:sticky;top:0;z-index:50}
+  .mobilebar button{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;padding:6px 10px;border-radius:8px}
+  #main{width:100%}
+}
+.muted{color:var(--muted)}
+.small{font-size:11.8px}
+.right{margin-inline-start:auto}
+.flexrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.divider{height:1px;background:var(--border);margin:14px 0}
+.checkline{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px}
+.checklist{max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:9px;padding:10px 14px;background:var(--bg)}
+.report-block{border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px;background:#fff}
+.report-block h4{margin:0 0 8px;font-size:14px;font-weight:800;color:var(--primary-dark)}
+#infographicRoot{position:fixed;left:-9999px;top:0;width:900px;background:linear-gradient(160deg,var(--primary-dark),var(--primary));padding:40px;color:#fff}
+</style>
+</head>
+<body>
+
+<div id="toastRoot"></div>
+<div id="modalRoot" class="modal-overlay"><div class="modal-box" id="modalBox"></div></div>
+<div id="root"></div>
+<div id="infographicRoot"></div>
+
+<script>
+/* ============================================================
+   منظومة متابعة التعليم — محافظة بدر
+   نسخة متصلة بقاعدة بيانات Supabase الحقيقية:
+   تسجيل دخول عبر Supabase Auth، وبيانات مشتركة بين كل المستخدمين
+   عبر جداول profiles / schools / records / form_links.
+   ============================================================ */
+(function(){
+"use strict";
+
+/* ---------------- Utilities ---------------- */
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+function esc(v){
+  if(v===undefined||v===null) return '';
+  return String(v).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function fmtDate(d){
+  if(!d) return '';
+  try{ var dt=new Date(d); if(isNaN(dt.getTime())) return d; return dt.toLocaleDateString('ar-SA'); }catch(e){ return d; }
+}
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function toast(msg, isErr){
+  var root=document.getElementById('toastRoot');
+  var t=document.createElement('div');
+  t.className='toast'+(isErr?' err':'');
+  t.textContent=msg;
+  root.appendChild(t);
+  setTimeout(function(){ t.remove(); }, 3200);
+}
+function download(filename, blob){
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url; a.download=filename; document.body.appendChild(a); a.click();
+  setTimeout(function(){ a.remove(); URL.revokeObjectURL(url); }, 400);
+}
+
+/* ---------------- Field builders ---------------- */
+var T = {
+  text:function(k,l,req){ return {key:k,label:l,type:'text',required:!!req}; },
+  textarea:function(k,l){ return {key:k,label:l,type:'textarea'}; },
+  select:function(k,l,opts){ return {key:k,label:l,type:'select',options:opts}; },
+  date:function(k,l){ return {key:k,label:l,type:'date'}; },
+  url:function(k,l){ return {key:k,label:l,type:'url'}; },
+  num:function(k,l){ return {key:k,label:l,type:'number'}; },
+  school:function(k,l){ return {key:k,label:l||'المدرسة/الجهة المرتبطة',type:'school'}; }
+};
+var STATUS_OPTS=['جديد','قيد المعالجة','تم الحل','مغلق'];
+var PRIORITY_OPTS=['منخفضة','متوسطة','عالية','عاجلة'];
+var ACTIVE_OPTS=['نشط','غير نشط'];
+
+function statusBadgeClass(v){
+  var m={'جديد':'st-new','قيد المعالجة':'st-progress','تم الحل':'st-done','مغلق':'st-closed','نشط':'st-active','غير نشط':'st-inactive'};
+  return m[v]||'st-new';
+}
+
+function issueFields(extra){
+  extra=extra||[];
+  return [ T.text('title','العنوان',true) ]
+    .concat(extra)
+    .concat([
+      T.school('schoolId','المدرسة المرتبطة'),
+      T.date('date','التاريخ'),
+      T.select('status','الحالة',STATUS_OPTS),
+      T.select('priority','الأولوية',PRIORITY_OPTS),
+      T.textarea('description','الوصف'),
+      T.url('link','رابط / نموذج مرتبط'),
+      T.textarea('notes','ملاحظات')
+    ]);
+}
+function personFields(extra){
+  extra=extra||[];
+  return [ T.text('name','الاسم',true) ]
+    .concat(extra)
+    .concat([
+      T.text('phone','رقم التواصل'),
+      T.school('schoolId','المدرسة / الجهة'),
+      T.select('status','الحالة',ACTIVE_OPTS),
+      T.textarea('notes','ملاحظات')
+    ]);
+}
+
+var SCHOOL_MODULE = {
+  id:'schools', section:'base', label:'المدارس (قاعدة البيانات الأساسية)', icon:'●',
+  fields:[
+    T.text('name','اسم المدرسة',true),
+    T.select('gender','نوع المدرسة',['بنين','بنات']),
+    T.select('stage','المرحلة الدراسية',['ابتدائي','متوسط','ثانوي','متعدد المراحل']),
+    T.num('studentsCount','عدد الطلاب'),
+    T.num('teachersCount','عدد المعلمين'),
+    T.text('principal','قائد المدرسة'),
+    T.text('supervisor','المشرف المسؤول'),
+    T.text('location','الحي / الموقع'),
+    T.textarea('notes','ملاحظات')
+  ]
+};
+
+var CATEGORIES = [
+  {id:'exec_team', section:'internal', group:'المشرفون', label:'الفريق التنفيذي', fields:personFields([T.text('position','المسمى الوظيفي')])},
+  {id:'providers', section:'internal', group:'المشرفون', label:'مقدمو الخدمة', fields:personFields([T.text('serviceType','نوع الخدمة')])},
+  {id:'admin_supervisors', section:'internal', group:'المشرفون', label:'مشرفو الإدارة', fields:personFields([T.text('department','القسم / الإدارة')])},
+
+  {id:'discipline', section:'internal', group:'المدارس', label:'الانضباط المدرسي', fields:issueFields()},
+  {id:'commitment', section:'internal', group:'المدارس', label:'الالتزام التعليمي', fields:issueFields()},
+  {id:'teachers', section:'internal', group:'المدارس', label:'المعلمون', fields:personFields([T.text('subject','المادة'),T.text('qualification','المؤهل')])},
+  {id:'students', section:'internal', group:'المدارس', label:'الطلاب', fields:issueFields([T.text('grade','الصف الدراسي')])},
+  {id:'school_services', section:'internal', group:'المدارس', label:'احتياجات المدارس من الخدمات', fields:issueFields([T.text('serviceType','نوع الاحتياج')])},
+  {id:'transport', section:'internal', group:'المدارس', label:'النقل المدرسي', fields:issueFields([T.text('route','تفاصيل خط النقل')])},
+
+  {id:'calendar', section:'internal', group:null, label:'التقويم المدرسي الذاتي والخارجي', fields:issueFields([T.select('calType','نوع التقويم',['ذاتي','خارجي'])])},
+  {id:'tests', section:'internal', group:null, label:'الاختبارات الوطنية والدولية', fields:issueFields([T.text('testName','اسم الاختبار')])},
+  {id:'development', section:'internal', group:null, label:'التطوير المهني', fields:issueFields([T.text('program','اسم البرنامج التدريبي')])},
+  {id:'other_internal', section:'internal', group:null, label:'قضايا تعليمية أخرى', fields:issueFields()},
+
+  {id:'national_events', section:'shared', group:null, label:'المناسبات الوطنية', fields:issueFields([T.text('eventName','اسم المناسبة')])},
+  {id:'community_partnership', section:'shared', group:null, label:'الشراكة المجتمعية', fields:issueFields([T.text('partner','الجهة الشريكة')])},
+  {id:'other_shared', section:'shared', group:null, label:'أخرى', fields:issueFields([T.text('entity','الجهة المعنية')])}
+];
+
+var ALL_MODULES = [SCHOOL_MODULE].concat(CATEGORIES);
+function getModule(id){ return ALL_MODULES.find(function(m){ return m.id===id; }); }
+
+var NAV = [
+  {type:'link', id:'overview', label:'نظرة عامة'},
+  {type:'link', id:'schools', label:'قاعدة البيانات الأساسية'},
+  {type:'section', label:'القضايا الداخلية', children:[
+    {type:'group', label:'المشرفون', children:['exec_team','providers','admin_supervisors']},
+    {type:'group', label:'المدارس', children:['discipline','commitment','teachers','students','school_services','transport']},
+    {type:'link', id:'calendar'},
+    {type:'link', id:'tests'},
+    {type:'link', id:'development'},
+    {type:'link', id:'other_internal'}
+  ]},
+  {type:'section', label:'القضايا المشتركة مع جهات أخرى', children:[
+    {type:'link', id:'national_events'},
+    {type:'link', id:'community_partnership'},
+    {type:'link', id:'other_shared'}
+  ]},
+  {type:'link', id:'archive', label:'الأرشيف'},
+  {type:'link', id:'reports', label:'التقارير'},
+  {type:'link', id:'users', label:'إدارة المستخدمين', adminOnly:true}
+];
+
+/* ---------------- Storage layer ----------------
+   يعمل التطبيق في وضعين تلقائياً:
+   يتصل مباشرة بقاعدة بيانات Supabase الحقيقية (تسجيل دخول + بيانات مشتركة بين كل المستخدمين). */
+var SUPABASE_URL = 'https://lsiqzespqcohyfqeyqjy.supabase.co';
+var SUPABASE_KEY = 'sb_publishable_VDdjTgTwrE86ckD8nkVQiw_-PJptx5D';
+var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ---- تحويل صفوف قاعدة البيانات (snake_case) إلى الشكل المستخدم في الواجهة ---- */
+function rowToSchool(row){
+  return {
+    id:row.id, name:row.name, gender:row.gender, stage:row.stage,
+    studentsCount: row.students_count!=null?row.students_count:'', teachersCount: row.teachers_count!=null?row.teachers_count:'',
+    principal: row.principal, supervisor: row.supervisor, location: row.location, notes: row.notes,
+    archived: row.archived, source:'قاعدة البيانات', createdAt: row.created_at, updatedAt: row.updated_at, createdBy: row.created_by
+  };
+}
+function schoolToRow(data){
+  return {
+    name:data.name||null, gender:data.gender||null, stage:data.stage||null,
+    students_count: data.studentsCount!==''&&data.studentsCount!=null? parseInt(data.studentsCount,10):null,
+    teachers_count: data.teachersCount!==''&&data.teachersCount!=null? parseInt(data.teachersCount,10):null,
+    principal:data.principal||null, supervisor:data.supervisor||null, location:data.location||null, notes:data.notes||null
+  };
+}
+var RECORD_DIRECT_KEYS=['title','name','schoolId','date','status','priority','description','notes','link'];
+function recordToRow(modId, data){
+  var row={category:modId, extra:{}};
+  Object.keys(data).forEach(function(k){
+    if(RECORD_DIRECT_KEYS.indexOf(k)>=0){
+      var col = k==='schoolId' ? 'school_id' : k;
+      row[col] = data[k]!==''? data[k] : null;
+    }else{
+      row.extra[k]=data[k];
+    }
+  });
+  return row;
+}
+function rowToRecord(row){
+  var rec={
+    id:row.id, category:row.category, title:row.title, name:row.name,
+    schoolId: row.school_id, date: row.date, status: row.status, priority: row.priority,
+    description: row.description, notes: row.notes, link: row.link,
+    archived: row.archived, source: row.source, createdAt: row.created_at, updatedAt: row.updated_at, createdBy: row.created_by
+  };
+  var extra=row.extra||{};
+  Object.keys(extra).forEach(function(k){ rec[k]=extra[k]; });
+  return rec;
+}
+function profileToUser(p){ return {id:p.id, name:p.name, username:p.username, role:p.role, status:p.status, createdAt:p.created_at}; }
+
+/* ---- جلب كل البيانات المشتركة بعد تسجيل الدخول ---- */
+async function fetchAll(){
+  var res = await Promise.all([
+    sb.from('schools').select('*').order('created_at',{ascending:false}),
+    sb.from('records').select('*').order('created_at',{ascending:false}),
+    sb.from('form_links').select('*').order('created_at',{ascending:false})
+  ]);
+  var schoolsRes=res[0], recordsRes=res[1], linksRes=res[2];
+  APP.db.schools = (schoolsRes.data||[]).map(rowToSchool);
+  APP.db.records = (recordsRes.data||[]).map(rowToRecord);
+  APP.db.formLinks = (linksRes.data||[]).map(function(l){ return {id:l.id, category:l.category, title:l.title, url:l.url}; });
+}
+async function fetchProfile(userId){
+  var res = await sb.from('profiles').select('*').eq('id', userId).single();
+  if(res.error) return null;
+  return res.data;
+}
+
+/* ---- عمليات الإضافة / التعديل / الأرشفة / الحذف على قاعدة البيانات ---- */
+async function dbInsertRecord(modId, data){
+  if(modId==='schools'){
+    var row=schoolToRow(data); row.created_by=APP.currentUser.id;
+    var res=await sb.from('schools').insert(row).select().single();
+    if(res.error) throw res.error;
+    return rowToSchool(res.data);
+  }
+  var row2=recordToRow(modId, data); row2.created_by=APP.currentUser.id; row2.source=data.source||'يدوي';
+  var res2=await sb.from('records').insert(row2).select().single();
+  if(res2.error) throw res2.error;
+  return rowToRecord(res2.data);
+}
+async function dbUpdateRecord(modId, id, data){
+  if(modId==='schools'){
+    var row=schoolToRow(data); row.updated_at=new Date().toISOString();
+    var res=await sb.from('schools').update(row).eq('id',id).select().single();
+    if(res.error) throw res.error;
+    return rowToSchool(res.data);
+  }
+  var row2=recordToRow(modId, data); row2.updated_at=new Date().toISOString();
+  var res2=await sb.from('records').update(row2).eq('id',id).select().single();
+  if(res2.error) throw res2.error;
+  return rowToRecord(res2.data);
+}
+async function dbSetArchived(modId, id, val){
+  var table = modId==='schools' ? 'schools' : 'records';
+  var res = await sb.from(table).update({archived:val, updated_at:new Date().toISOString()}).eq('id', id);
+  if(res.error) throw res.error;
+}
+async function dbDelete(modId, id){
+  var table = modId==='schools' ? 'schools' : 'records';
+  var res = await sb.from(table).delete().eq('id', id);
+  if(res.error) throw res.error;
+}
+
+/* ---------------- App state ---------------- */
+var APP = {
+  db:{schools:[], records:[], formLinks:[]},
+  currentUser:null,
+  usersCache:null,
+  view:{id:'overview'},
+  authTab:'login',
+  authMsg:null,
+  sidebarOpen:false,
+  report:null
+};
+
+function currentRole(){ return APP.currentUser ? APP.currentUser.role : null; }
+function isAdmin(){ return currentRole()==='admin'; }
+function canEdit(){ return currentRole()==='admin' || currentRole()==='editor'; }
+
+/* ---------------- Render root ---------------- */
+function render(){
+  var root=document.getElementById('root');
+  if(!APP.currentUser){ root.innerHTML = renderLogin(); bindLoginEvents(); return; }
+  root.innerHTML = renderShell();
+  bindShellEvents();
+}
+
+/* ================= LOGIN ================= */
+function renderLogin(){
+  var msg='';
+  if(APP.authMsg){ msg='<div class="auth-msg '+APP.authMsg.type+'">'+esc(APP.authMsg.text)+'</div>'; }
+  var tabs=['login','register','admin'];
+  var tabLabels={login:'تسجيل الدخول', register:'حساب جديد', admin:'دخول المشرف'};
+  var tabsHtml = tabs.map(function(t){
+    return '<button data-tab="'+t+'" class="'+(APP.authTab===t?'active':'')+'">'+tabLabels[t]+'</button>';
+  }).join('');
+
+  var body='';
+  if(APP.authTab==='login' || APP.authTab==='admin'){
+    var isAdminTab = APP.authTab==='admin';
+    body = ''+
+      '<form id="loginForm">'+
+        '<div class="field"><label>البريد الإلكتروني</label><input name="email" type="email" required autocomplete="username"></div>'+
+        '<div class="field"><label>كلمة المرور</label><input name="password" type="password" required autocomplete="current-password"></div>'+
+        '<input type="hidden" name="adminOnly" value="'+(isAdminTab?'1':'0')+'">'+
+        '<button class="btn btn-primary" type="submit" style="width:100%;justify-content:center;padding:11px">'+(isAdminTab?'دخول المشرف':'دخول')+'</button>'+
+      '</form>';
+  }else{
+    body = ''+
+      '<form id="registerForm">'+
+        '<div class="field"><label>الاسم الكامل</label><input name="name" required></div>'+
+        '<div class="field"><label>البريد الإلكتروني</label><input name="email" type="email" required></div>'+
+        '<div class="field-row">'+
+          '<div class="field"><label>كلمة المرور</label><input name="password" type="password" required minlength="6"></div>'+
+          '<div class="field"><label>تأكيد كلمة المرور</label><input name="password2" type="password" required minlength="6"></div>'+
+        '</div>'+
+        '<div class="muted small" style="margin-bottom:10px">سيقوم المشرف بتحديد صلاحيتك (محرر بيانات / مشاهدة) عند اعتماد الحساب.</div>'+
+        '<button class="btn btn-primary" type="submit" style="width:100%;justify-content:center;padding:11px">إرسال طلب التسجيل</button>'+
+      '</form>';
+  }
+
+  return ''+
+  '<div id="loginScreen"><div class="login-wrap">'+
+    '<div class="login-brand">'+
+      '<div class="eyebrow">إدارة التعليم — محافظة بدر</div>'+
+      '<h1>منظومة متابعة التعليم</h1>'+
+      '<div class="sub">لوحة متابعة القضايا التعليمية الداخلية والمشتركة</div>'+
+    '</div>'+
+    '<div class="login-card">'+
+      '<div class="authtabs">'+tabsHtml+'</div>'+
+      msg+
+      body+
+    '</div>'+
+    '<div class="hint-box">أول تسجيل: أنشئ حسابك ثم فعّله كمشرف عام من محرر SQL في Supabase.</div>'+
+  '</div></div>';
+}
+
+function setBtnLoading(form, loading, label){
+  var btn=form.querySelector('button[type="submit"]');
+  if(!btn) return;
+  if(loading){ btn.dataset.orig=btn.textContent; btn.textContent='جارٍ التنفيذ...'; btn.disabled=true; }
+  else{ btn.textContent = label || btn.dataset.orig || btn.textContent; btn.disabled=false; }
+}
+
+function bindLoginEvents(){
+  document.querySelectorAll('.authtabs button').forEach(function(b){
+    b.onclick=function(){ APP.authTab=b.dataset.tab; APP.authMsg=null; render(); };
+  });
+  var lf=document.getElementById('loginForm');
+  if(lf) lf.onsubmit=async function(e){
+    e.preventDefault();
+    setBtnLoading(lf, true);
+    var fd=new FormData(lf);
+    var email=fd.get('email').trim();
+    var password=fd.get('password');
+    var adminOnly=fd.get('adminOnly')==='1';
+    try{
+      var signRes = await sb.auth.signInWithPassword({email:email, password:password});
+      if(signRes.error){
+        APP.authMsg={type:'err', text:'البريد الإلكتروني أو كلمة المرور غير صحيحة'}; render(); return;
+      }
+      var prof = await fetchProfile(signRes.data.user.id);
+      if(!prof){ await sb.auth.signOut(); APP.authMsg={type:'err', text:'تعذر العثور على بيانات الحساب'}; render(); return; }
+      if(adminOnly && prof.role!=='admin'){
+        await sb.auth.signOut();
+        APP.authMsg={type:'err', text:'هذا الحساب لا يملك صلاحية المشرف'}; render(); return;
+      }
+      if(prof.status==='pending'){
+        await sb.auth.signOut();
+        APP.authMsg={type:'info', text:'حسابك قيد المراجعة بانتظار موافقة المشرف'}; render(); return;
+      }
+      if(prof.status==='rejected'){
+        await sb.auth.signOut();
+        APP.authMsg={type:'err', text:'تم رفض طلب هذا الحساب من قبل المشرف'}; render(); return;
+      }
+      APP.currentUser=profileToUser(prof);
+      await fetchAll();
+      APP.view={id:'overview'}; APP.authMsg=null;
+      render();
+    }catch(err){
+      APP.authMsg={type:'err', text:'تعذر تسجيل الدخول: '+(err&&err.message?err.message:'خطأ غير متوقع')}; render();
+    }
+  };
+  var rf=document.getElementById('registerForm');
+  if(rf) rf.onsubmit=async function(e){
+    e.preventDefault();
+    setBtnLoading(rf, true);
+    var fd=new FormData(rf);
+    var name=fd.get('name').trim(), email=fd.get('email').trim();
+    var p1=fd.get('password'), p2=fd.get('password2');
+    if(p1!==p2){ APP.authMsg={type:'err', text:'كلمتا المرور غير متطابقتين'}; render(); return; }
+    try{
+      var res = await sb.auth.signUp({
+        email:email, password:p1,
+        options:{ data:{ name:name, username:email } }
+      });
+      if(res.error){
+        APP.authMsg={type:'err', text:'تعذر إنشاء الحساب: '+res.error.message}; render(); return;
+      }
+      try{ await sb.auth.signOut(); }catch(e2){}
+      APP.authTab='login';
+      APP.authMsg={type:'ok', text:'تم إرسال طلبك بنجاح، سيتم إشعارك بعد موافقة المشرف.'};
+      render();
+    }catch(err){
+      APP.authMsg={type:'err', text:'تعذر إنشاء الحساب: '+(err&&err.message?err.message:'خطأ غير متوقع')}; render();
+    }
+  };
+}
+
+/* ================= APP SHELL ================= */
+function moduleLabel(id){
+  if(id==='schools') return SCHOOL_MODULE.label;
+  var c=CATEGORIES.find(function(x){return x.id===id;});
+  return c?c.label:id;
+}
+function isViewActive(id){ return APP.view.id===id; }
+
+function renderNav(){
+  var html='';
+  NAV.forEach(function(item){
+    if(item.adminOnly && !isAdmin()) return;
+    if(item.type==='link'){
+      var label = item.label || moduleLabel(item.id);
+      html+='<a href="#" class="nav-link '+(isViewActive(item.id)?'active':'')+'" data-nav="'+item.id+'"><span class="dot"></span>'+esc(label)+'</a>';
+    }else if(item.type==='section'){
+      html+='<div class="navsection-title">'+esc(item.label)+'</div>';
+      item.children.forEach(function(ch){
+        if(ch.type==='group'){
+          var openAttr = ch.children.indexOf(APP.view.id)>=0 ? ' open':'';
+          html+='<details class="navgroup"'+openAttr+'><summary>'+esc(ch.label)+'</summary>';
+          ch.children.forEach(function(cid){
+            html+='<a href="#" class="nav-link '+(isViewActive(cid)?'active':'')+'" data-nav="'+cid+'"><span class="dot"></span>'+esc(moduleLabel(cid))+'</a>';
+          });
+          html+='</details>';
+        }else{
+          html+='<a href="#" class="nav-link '+(isViewActive(ch.id)?'active':'')+'" data-nav="'+ch.id+'"><span class="dot"></span>'+esc(moduleLabel(ch.id))+'</a>';
+        }
+      });
+    }
+  });
+  return html;
+}
+
+function currentTitle(){
+  var v=APP.view.id;
+  var map={overview:'نظرة عامة', schools:'قاعدة البيانات الأساسية', archive:'الأرشيف', reports:'التقارير', users:'إدارة المستخدمين'};
+  if(map[v]) return map[v];
+  return moduleLabel(v);
+}
+function currentCrumb(){
+  var v=APP.view.id;
+  var cat=CATEGORIES.find(function(c){return c.id===v;});
+  if(!cat) return '';
+  if(cat.section==='internal') return 'القضايا الداخلية'+(cat.group?(' / '+cat.group):'');
+  if(cat.section==='shared') return 'القضايا المشتركة مع جهات أخرى';
+  return '';
+}
+
+function renderShell(){
+  var content = renderContent();
+  return ''+
+  '<div id="app">'+
+    '<div id="sidebar" class="'+(APP.sidebarOpen?'open':'')+'">'+
+      '<div class="brand"><div class="eyebrow">إدارة التعليم — محافظة بدر</div><h1>منظومة متابعة التعليم</h1><div class="sub">لوحة القضايا التعليمية</div></div>'+
+      '<nav class="navlist">'+renderNav()+'</nav>'+
+      '<div class="userbox"><div class="name">'+esc(APP.currentUser.name)+'</div><div class="role">'+roleLabel(APP.currentUser.role)+'</div><button class="logout" id="logoutBtn">تسجيل الخروج</button></div>'+
+    '</div>'+
+    '<div id="main">'+
+      '<div class="mobilebar"><button id="mobileMenuBtn">☰ القائمة</button><strong>'+esc(currentTitle())+'</strong></div>'+
+      '<div id="topbar"><div><h2>'+esc(currentTitle())+'</h2><div class="crumb">'+esc(currentCrumb())+'</div></div>'+
+        '<div class="flexrow"><button class="btn btn-sm" id="refreshBtn">⟳ تحديث البيانات</button><span class="badge role-'+APP.currentUser.role+'">'+roleLabel(APP.currentUser.role)+'</span></div>'+
+      '</div>'+
+      '<div id="content">'+content+'</div>'+
+    '</div>'+
+  '</div>';
+}
+function roleLabel(r){ return {admin:'مشرف عام', editor:'محرر بيانات', viewer:'مشاهدة فقط'}[r]||r; }
+
+function bindShellEvents(){
+  document.querySelectorAll('[data-nav]').forEach(function(el){
+    el.onclick=function(e){
+      e.preventDefault();
+      if(el.dataset.nav==='users') APP.usersCache=null;
+      APP.view={id:el.dataset.nav}; APP.sidebarOpen=false; render();
+    };
+  });
+  var lo=document.getElementById('logoutBtn');
+  if(lo) lo.onclick=async function(){
+    try{ await sb.auth.signOut(); }catch(e){}
+    APP.currentUser=null; APP.db={schools:[], records:[], formLinks:[]}; APP.usersCache=null;
+    render();
+  };
+  var mb=document.getElementById('mobileMenuBtn');
+  if(mb) mb.onclick=function(){ APP.sidebarOpen=!APP.sidebarOpen; render(); };
+  var rb=document.getElementById('refreshBtn');
+  if(rb) rb.onclick=async function(){
+    rb.disabled=true; rb.textContent='جارٍ التحديث...';
+    try{ await fetchAll(); toast('تم تحديث البيانات'); }
+    catch(e){ toast('تعذر تحديث البيانات', true); }
+    render();
+  };
+  bindContentEvents();
+}
+
+/* ================= CONTENT ROUTER ================= */
+function renderContent(){
+  var v=APP.view.id;
+  if(v==='overview') return renderOverview();
+  if(v==='archive') return renderArchiveView();
+  if(v==='reports') return renderReportsView();
+  if(v==='users') return isAdmin()? renderUsersView() : '<div class="panel">لا تملك صلاحية الوصول لهذه الصفحة.</div>';
+  var mod=getModule(v);
+  if(mod) return renderModuleView(mod.id);
+  return '<div class="panel">الصفحة غير موجودة.</div>';
+}
+function bindContentEvents(){
+  var v=APP.view.id;
+  if(v==='overview') return;
+  if(v==='archive') return bindArchiveEvents();
+  if(v==='reports') return bindReportsEvents();
+  if(v==='users') return bindUsersEvents();
+  var mod=getModule(v);
+  if(mod) bindModuleEvents(mod.id);
+}
+
+/* ================= OVERVIEW ================= */
+function renderOverview(){
+  var db=APP.db;
+  var totalRecords=db.records.filter(function(r){return !r.archived;}).length;
+  var internalCount=db.records.filter(function(r){var c=CATEGORIES.find(function(x){return x.id===r.category;});return c&&c.section==='internal'&&!r.archived;}).length;
+  var sharedCount=db.records.filter(function(r){var c=CATEGORIES.find(function(x){return x.id===r.category;});return c&&c.section==='shared'&&!r.archived;}).length;
+  var usersActive=db.users.filter(function(u){return u.status==='approved';}).length;
+  var archivedCount=db.records.filter(function(r){return r.archived;}).length;
+
+  var statusCounts={};
+  STATUS_OPTS.forEach(function(s){statusCounts[s]=0;});
+  db.records.forEach(function(r){ if(!r.archived && statusCounts.hasOwnProperty(r.status)) statusCounts[r.status]++; });
+  var maxStatus=Math.max.apply(null,Object.values(statusCounts).concat([1]));
+
+  var byCat={};
+  CATEGORIES.forEach(function(c){ byCat[c.id]=0; });
+  db.records.forEach(function(r){ if(!r.archived && byCat.hasOwnProperty(r.category)) byCat[r.category]++; });
+  var topCats=Object.keys(byCat).map(function(k){return {id:k,c:byCat[k]};}).sort(function(a,b){return b.c-a.c;}).slice(0,6);
+  var maxCat=Math.max.apply(null,topCats.map(function(x){return x.c;}).concat([1]));
+
+  var recent=db.records.slice().sort(function(a,b){return new Date(b.createdAt)-new Date(a.createdAt);}).slice(0,6);
+
+  var html='<div class="cards-grid">'+
+    statCard('عدد المدارس المسجلة', db.schools.length, '')+
+    statCard('سجلات القضايا الداخلية', internalCount, 'accent')+
+    statCard('سجلات القضايا المشتركة', sharedCount, 'info')+
+    statCard('إجمالي السجلات النشطة', totalRecords, '')+
+    statCard('مستخدمون معتمدون', usersActive, 'accent')+
+    statCard('سجلات مؤرشفة', archivedCount, 'danger')+
+  '</div>';
+
+  html+='<div class="cards-grid" style="grid-template-columns:1.3fr 1fr">';
+  html+='<div class="panel"><h3><span class="sq"></span>أعلى الفئات من حيث عدد السجلات</h3>';
+  if(topCats.every(function(t){return t.c===0;})){
+    html+='<div class="muted small">لا توجد بيانات بعد. ابدأ بإضافة سجلات من القائمة الجانبية.</div>';
+  }else{
+    topCats.forEach(function(t){
+      html+='<div class="bar-row"><div class="bl">'+esc(moduleLabel(t.id))+'</div><div class="bar-track"><div class="bar-fill" style="width:'+(t.c/maxCat*100)+'%"></div></div><div class="bn">'+t.c+'</div></div>';
+    });
+  }
+  html+='</div>';
+
+  html+='<div class="panel"><h3><span class="sq"></span>توزيع الحالات</h3>';
+  STATUS_OPTS.forEach(function(s){
+    html+='<div class="bar-row"><div class="bl">'+esc(s)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+(statusCounts[s]/maxStatus*100)+'%"></div></div><div class="bn">'+statusCounts[s]+'</div></div>';
+  });
+  html+='</div></div>';
+
+  html+='<div class="panel"><h3><span class="sq"></span>أحدث السجلات المضافة</h3>';
+  if(!recent.length){
+    html+='<div class="muted small">لا توجد سجلات بعد.</div>';
+  }else{
+    html+='<div class="table-wrap"><table class="data"><thead><tr><th>الفئة</th><th>العنوان / الاسم</th><th>الحالة</th><th>تاريخ الإضافة</th></tr></thead><tbody>';
+    recent.forEach(function(r){
+      var title=r.title||r.name||'—';
+      html+='<tr><td>'+esc(moduleLabel(r.category))+'</td><td>'+esc(title)+'</td><td>'+(r.status?'<span class="badge '+statusBadgeClass(r.status)+'"><span class="d"></span>'+esc(r.status)+'</span>':'—')+'</td><td>'+fmtDate(r.createdAt)+'</td></tr>';
+    });
+    html+='</tbody></table></div>';
+  }
+  html+='</div>';
+  return html;
+}
+function statCard(label,num,cls){
+  return '<div class="stat-card '+(cls||'')+'"><div class="label">'+esc(label)+'</div><div class="stat-num">'+num+'</div></div>';
+}
+
+/* ================= GENERIC MODULE (schools + categories) ================= */
+var moduleSearch={}; // per-module search text
+
+function recordDisplayTitle(rec, mod){
+  return rec.title || rec.name || '—';
+}
+
+function renderModuleView(modId){
+  var mod=getModule(modId);
+  var db=APP.db;
+  var records=db.records.filter(function(r){return r.category===modId && !r.archived;});
+  if(modId==='schools') records=db.schools.filter(function(r){return !r.archived;});
+
+  var q=(moduleSearch[modId]||'').trim().toLowerCase();
+  if(q){
+    records=records.filter(function(r){
+      return mod.fields.some(function(f){
+        var v=r[f.key]; return v!==undefined && String(v).toLowerCase().indexOf(q)>=0;
+      });
+    });
+  }
+
+  var links=db.formLinks.filter(function(l){return l.category===modId;});
+
+  var html='<div class="toolbar">';
+  html+='<input class="search-box" id="modSearch" placeholder="بحث في السجلات..." value="'+esc(moduleSearch[modId]||'')+'">';
+  html+='<span class="grow"></span>';
+  if(canEdit()){
+    html+='<button class="btn btn-primary" id="btnAdd">+ إضافة سجل</button>';
+    html+='<button class="btn" id="btnImport">استيراد إكسل</button>';
+    html+='<input type="file" id="fileImport" accept=".xlsx,.xls,.csv" style="display:none">';
+    html+='<button class="btn" id="btnTemplate">تنزيل قالب</button>';
+  }
+  html+='<button class="btn" id="btnExport">تصدير إكسل</button>';
+  html+='</div>';
+
+  if(canEdit()){
+    html+='<div class="panel" style="padding:14px 16px;margin-bottom:16px">';
+    html+='<div class="flexrow"><strong class="small">روابط نماذج (Google Forms) أو مصادر خارجية مرتبطة بهذه الفئة:</strong></div>';
+    html+='<div class="linkbar" style="margin-top:8px">';
+    links.forEach(function(l){
+      html+='<a class="pill-link" href="'+esc(l.url)+'" target="_blank" rel="noopener">🔗 '+esc(l.title)+'</a>';
+    });
+    if(!links.length) html+='<span class="muted small">لا توجد روابط مضافة بعد.</span>';
+    html+='</div>';
+    html+='<form id="addLinkForm" class="flexrow" style="margin-top:10px">'+
+      '<input name="title" placeholder="عنوان الرابط (مثال: نموذج رصد الغياب)" class="search-box" style="min-width:220px" required>'+
+      '<input name="url" placeholder="https://forms.gle/..." class="search-box" style="min-width:220px" required>'+
+      '<button class="btn btn-sm" type="submit">إضافة رابط</button>'+
+    '</form></div>';
+  }
+
+  html+='<div class="table-wrap"><table class="data"><thead><tr>';
+  mod.fields.forEach(function(f){ if(f.type!=='textarea') html+='<th>'+esc(f.label)+'</th>'; });
+  html+='<th>مصدر</th><th>إجراءات</th></tr></thead><tbody>';
+  if(!records.length){
+    html+='<tr class="empty-row"><td colspan="'+(mod.fields.filter(function(f){return f.type!=='textarea';}).length+2)+'">لا توجد سجلات بعد — ابدأ بإضافة سجل جديد أو استيراد ملف إكسل.</td></tr>';
+  }else{
+    records.slice().sort(function(a,b){return new Date(b.createdAt||0)-new Date(a.createdAt||0);}).forEach(function(r){
+      html+='<tr>';
+      mod.fields.forEach(function(f){
+        if(f.type==='textarea') return;
+        var v=r[f.key];
+        if(f.type==='school'){
+          var s=db.schools.find(function(x){return x.id===v;});
+          html+='<td>'+(s?esc(s.name):'<span class="muted">—</span>')+'</td>';
+        }else if(f.key==='status'){
+          html+='<td>'+(v?'<span class="badge '+statusBadgeClass(v)+'"><span class="d"></span>'+esc(v)+'</span>':'—')+'</td>';
+        }else if(f.type==='date'){
+          html+='<td>'+(v?fmtDate(v):'—')+'</td>';
+        }else if(f.type==='url'){
+          html+='<td>'+(v?('<a href="'+esc(v)+'" target="_blank" rel="noopener">فتح الرابط</a>'):'—')+'</td>';
+        }else{
+          html+='<td>'+(v!==undefined&&v!==''?esc(v):'<span class="muted">—</span>')+'</td>';
+        }
+      });
+      html+='<td><span class="small muted">'+esc(r.source||'يدوي')+'</span></td>';
+      html+='<td class="flexrow">';
+      html+='<button class="btn btn-sm" data-view="'+r.id+'">عرض</button>';
+      if(canEdit()) html+='<button class="btn btn-sm" data-edit="'+r.id+'">تعديل</button>';
+      if(canEdit()) html+='<button class="btn btn-sm" data-archive="'+r.id+'">أرشفة</button>';
+      if(isAdmin()) html+='<button class="btn btn-sm btn-danger" data-del="'+r.id+'">حذف</button>';
+      html+='</td></tr>';
+    });
+  }
+  html+='</tbody></table></div>';
+  return html;
+}
+
+function bindModuleEvents(modId){
+  var mod=getModule(modId);
+  var input=document.getElementById('modSearch');
+  if(input) input.oninput=function(){ moduleSearch[modId]=input.value; render(); setTimeout(function(){var i=document.getElementById('modSearch'); if(i){i.focus(); i.setSelectionRange(i.value.length,i.value.length);}},0); };
+
+  var addBtn=document.getElementById('btnAdd');
+  if(addBtn) addBtn.onclick=function(){ openRecordModal(modId, null); };
+
+  var expBtn=document.getElementById('btnExport');
+  if(expBtn) expBtn.onclick=function(){ exportModuleExcel(modId); };
+
+  var tmplBtn=document.getElementById('btnTemplate');
+  if(tmplBtn) tmplBtn.onclick=function(){ downloadTemplate(modId); };
+
+  var impBtn=document.getElementById('btnImport');
+  var fileInput=document.getElementById('fileImport');
+  if(impBtn && fileInput){
+    impBtn.onclick=function(){ fileInput.click(); };
+    fileInput.onchange=function(){
+      if(fileInput.files && fileInput.files[0]) importModuleExcel(modId, fileInput.files[0]);
+      fileInput.value='';
+    };
+  }
+  var linkForm=document.getElementById('addLinkForm');
+  if(linkForm) linkForm.onsubmit=async function(e){
+    e.preventDefault();
+    var fd=new FormData(linkForm);
+    var submitBtn=linkForm.querySelector('button[type="submit"]');
+    if(submitBtn) submitBtn.disabled=true;
+    try{
+      var res=await sb.from('form_links').insert({category:modId, title:fd.get('title'), url:fd.get('url'), created_by:APP.currentUser.id}).select().single();
+      if(res.error) throw res.error;
+      APP.db.formLinks.push({id:res.data.id, category:modId, title:res.data.title, url:res.data.url});
+      render();
+    }catch(err){ toast('تعذر إضافة الرابط: '+(err&&err.message?err.message:''), true); if(submitBtn) submitBtn.disabled=false; }
+  };
+
+  document.querySelectorAll('[data-view]').forEach(function(b){ b.onclick=function(){ openViewModal(modId, b.dataset.view); }; });
+  document.querySelectorAll('[data-edit]').forEach(function(b){ b.onclick=function(){ openRecordModal(modId, b.dataset.edit); }; });
+  document.querySelectorAll('[data-archive]').forEach(function(b){ b.onclick=function(){ archiveRecord(modId, b.dataset.archive, true); }; });
+  document.querySelectorAll('[data-del]').forEach(function(b){ b.onclick=function(){ if(confirm('هل أنت متأكد من حذف هذا السجل نهائياً؟')) deleteRecord(modId, b.dataset.del); }; });
+}
+
+function getStore(modId){ return modId==='schools' ? APP.db.schools : APP.db.records; }
+
+function findRecord(modId, id){
+  return getStore(modId).find(function(r){return r.id===id;});
+}
+async function archiveRecord(modId, id, val){
+  var r=findRecord(modId,id); if(!r) return;
+  try{
+    await dbSetArchived(modId, id, val);
+    r.archived=val; r.updatedAt=new Date().toISOString();
+    toast(val?'تمت أرشفة السجل':'تمت استعادة السجل'); render();
+  }catch(err){ toast('تعذر تنفيذ العملية: '+(err&&err.message?err.message:''), true); }
+}
+async function deleteRecord(modId, id){
+  try{
+    await dbDelete(modId, id);
+    var store=getStore(modId);
+    var idx=store.findIndex(function(r){return r.id===id;});
+    if(idx>=0) store.splice(idx,1);
+    toast('تم حذف السجل'); render();
+  }catch(err){ toast('تعذر الحذف: '+(err&&err.message?err.message:''), true); }
+}
+
+/* ---- Modal: view / add / edit ---- */
+function openModal(html){
+  document.getElementById('modalBox').innerHTML=html;
+  document.getElementById('modalRoot').classList.add('open');
+}
+function closeModal(){
+  document.getElementById('modalRoot').classList.remove('open');
+  document.getElementById('modalBox').innerHTML='';
+}
+window.__closeModal=closeModal;
+
+function fieldInputHtml(f, val){
+  val = val===undefined||val===null? '' : val;
+  if(f.type==='select'){
+    var opts='<option value=""></option>'+f.options.map(function(o){return '<option value="'+esc(o)+'" '+(o===val?'selected':'')+'>'+esc(o)+'</option>';}).join('');
+    return '<select name="'+f.key+'" '+(f.required?'required':'')+'>'+opts+'</select>';
+  }
+  if(f.type==='school'){
+    var opts2='<option value="">بدون</option>'+APP.db.schools.map(function(s){return '<option value="'+s.id+'" '+(s.id===val?'selected':'')+'>'+esc(s.name)+'</option>';}).join('');
+    return '<select name="'+f.key+'">'+opts2+'</select>';
+  }
+  if(f.type==='textarea'){
+    return '<textarea name="'+f.key+'" '+(f.required?'required':'')+'>'+esc(val)+'</textarea>';
+  }
+  if(f.type==='date'){
+    return '<input type="date" name="'+f.key+'" value="'+esc(val)+'" '+(f.required?'required':'')+'>';
+  }
+  if(f.type==='number'){
+    return '<input type="number" name="'+f.key+'" value="'+esc(val)+'" '+(f.required?'required':'')+'>';
+  }
+  if(f.type==='url'){
+    return '<input type="url" name="'+f.key+'" value="'+esc(val)+'" placeholder="https://">';
+  }
+  return '<input type="text" name="'+f.key+'" value="'+esc(val)+'" '+(f.required?'required':'')+'>';
+}
+
+function openRecordModal(modId, recId){
+  var mod=getModule(modId);
+  var rec = recId ? findRecord(modId, recId) : {};
+  var html='<h3>'+(recId?'تعديل سجل':'إضافة سجل جديد')+'</h3><div class="modal-sub">'+esc(mod.label)+'</div>';
+  html+='<form id="recForm">';
+  mod.fields.forEach(function(f){
+    html+='<div class="field"><label>'+esc(f.label)+(f.required?' *':'')+'</label>'+fieldInputHtml(f, rec[f.key])+'</div>';
+  });
+  html+='<div class="modal-actions"><button type="button" class="btn" id="modalCancel">إلغاء</button><button type="submit" class="btn btn-primary">حفظ</button></div>';
+  html+='</form>';
+  openModal(html);
+  document.getElementById('modalCancel').onclick=closeModal;
+  document.getElementById('recForm').onsubmit=async function(e){
+    e.preventDefault();
+    var form=e.target;
+    var submitBtn=form.querySelector('button[type="submit"]');
+    if(submitBtn){ submitBtn.disabled=true; submitBtn.textContent='جارٍ الحفظ...'; }
+    var fd=new FormData(form);
+    var data={};
+    mod.fields.forEach(function(f){ data[f.key]=fd.get(f.key)||''; });
+    try{
+      if(recId){
+        var updated = await dbUpdateRecord(modId, recId, data);
+        Object.assign(rec, updated);
+        toast('تم تحديث السجل');
+      }else{
+        var created = await dbInsertRecord(modId, data);
+        getStore(modId).unshift(created);
+        toast('تمت إضافة السجل');
+      }
+      closeModal(); render();
+    }catch(err){
+      toast('تعذر الحفظ: '+(err&&err.message?err.message:'خطأ غير متوقع'), true);
+      if(submitBtn){ submitBtn.disabled=false; submitBtn.textContent='حفظ'; }
+    }
+  };
+}
+
+function openViewModal(modId, recId){
+  var mod=getModule(modId);
+  var rec=findRecord(modId, recId);
+  if(!rec) return;
+  var html='<h3>'+esc(recordDisplayTitle(rec,mod))+'</h3><div class="modal-sub">'+esc(mod.label)+'</div>';
+  mod.fields.forEach(function(f){
+    var v=rec[f.key];
+    var display='—';
+    if(f.type==='school'){ var s=APP.db.schools.find(function(x){return x.id===v;}); display=s?s.name:'—'; }
+    else if(f.type==='url' && v){ display='<a href="'+esc(v)+'" target="_blank" rel="noopener">'+esc(v)+'</a>'; }
+    else if(f.type==='date' && v){ display=fmtDate(v); }
+    else if(v){ display=esc(v); }
+    html+='<div class="field"><label>'+esc(f.label)+'</label><div style="padding:8px 2px">'+display+'</div></div>';
+  });
+  html+='<div class="modal-actions"><button type="button" class="btn btn-primary" id="modalCancel">إغلاق</button></div>';
+  openModal(html);
+  document.getElementById('modalCancel').onclick=closeModal;
+}
+
+/* ---- Import / Export / Template ---- */
+function downloadTemplate(modId){
+  var mod=getModule(modId);
+  var headers=mod.fields.map(function(f){return f.label;});
+  var ws=XLSX.utils.aoa_to_sheet([headers]);
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'قالب');
+  XLSX.writeFile(wb, 'قالب-'+mod.label+'.xlsx');
+}
+
+function exportModuleExcel(modId){
+  var mod=getModule(modId);
+  var db=APP.db;
+  var records = modId==='schools' ? db.schools : db.records.filter(function(r){return r.category===modId;});
+  var rows=records.map(function(r){
+    var o={};
+    mod.fields.forEach(function(f){
+      var v=r[f.key];
+      if(f.type==='school'){ var s=db.schools.find(function(x){return x.id===v;}); v=s?s.name:''; }
+      o[f.label]=v||'';
+    });
+    o['الحالة (أرشفة)']=r.archived?'مؤرشف':'نشط';
+    return o;
+  });
+  var ws=XLSX.utils.json_to_sheet(rows);
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, mod.label.slice(0,28));
+  XLSX.writeFile(wb, mod.label+'.xlsx');
+  toast('تم تصدير الملف');
+}
+
+function importModuleExcel(modId, file){
+  var mod=getModule(modId);
+  var reader=new FileReader();
+  reader.onload=async function(e){
+    var rows;
+    try{
+      var data=new Uint8Array(e.target.result);
+      var wb=XLSX.read(data, {type:'array'});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      rows=XLSX.utils.sheet_to_json(ws, {defval:''});
+    }catch(err){
+      toast('تعذرت قراءة الملف، تأكد من صيغة الإكسل', true); return;
+    }
+    toast('جارٍ استيراد '+rows.length+' صف...');
+    var added=0, skipped=0, failed=0;
+    for(var i=0;i<rows.length;i++){
+      var row=rows[i];
+      var rec={};
+      mod.fields.forEach(function(f){
+        var val='';
+        Object.keys(row).forEach(function(k){
+          if(k.trim()===f.label.trim()) val=row[k];
+        });
+        if(f.type==='school' && val){
+          var s=APP.db.schools.find(function(x){return x.name===String(val).trim();});
+          val = s? s.id : '';
+        }
+        rec[f.key]=val;
+      });
+      var reqOk = mod.fields.filter(function(f){return f.required;}).every(function(f){return rec[f.key];});
+      if(!reqOk){ skipped++; continue; }
+      rec.source='استيراد إكسل';
+      try{
+        var created = await dbInsertRecord(modId, rec);
+        getStore(modId).unshift(created);
+        added++;
+      }catch(err2){ failed++; }
+    }
+    render();
+    var msg='تم استيراد '+added+' سجل';
+    if(skipped) msg+=' — تم تجاهل '+skipped+' صف لعدم اكتمال الحقول المطلوبة';
+    if(failed) msg+=' — تعذر حفظ '+failed+' صف';
+    toast(msg);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ================= ARCHIVE VIEW ================= */
+var archiveFilter='';
+function renderArchiveView(){
+  var db=APP.db;
+  var all=[];
+  db.schools.filter(function(r){return r.archived;}).forEach(function(r){ all.push({modId:'schools', rec:r}); });
+  db.records.filter(function(r){return r.archived;}).forEach(function(r){ all.push({modId:r.category, rec:r}); });
+
+  var options='<option value="">كل الفئات</option>'+ALL_MODULES.map(function(m){return '<option value="'+m.id+'" '+(archiveFilter===m.id?'selected':'')+'>'+esc(m.label)+'</option>';}).join('');
+  var filtered = archiveFilter? all.filter(function(x){return x.modId===archiveFilter;}) : all;
+
+  var html='<div class="panel">';
+  html+='<div class="toolbar"><label class="small muted">تصفية حسب الفئة:</label><select id="archiveFilterSel" class="search-box">'+options+'</select></div>';
+  html+='<div class="table-wrap"><table class="data"><thead><tr><th>الفئة</th><th>العنوان / الاسم</th><th>تاريخ الأرشفة</th><th>إجراءات</th></tr></thead><tbody>';
+  if(!filtered.length){
+    html+='<tr class="empty-row"><td colspan="4">لا توجد سجلات مؤرشفة.</td></tr>';
+  }else{
+    filtered.forEach(function(x){
+      html+='<tr><td>'+esc(moduleLabel(x.modId))+'</td><td>'+esc(recordDisplayTitle(x.rec))+'</td><td>'+fmtDate(x.rec.updatedAt||x.rec.createdAt)+'</td><td class="flexrow">';
+      if(canEdit()) html+='<button class="btn btn-sm" data-restore="'+x.modId+'|'+x.rec.id+'">استعادة</button>';
+      if(isAdmin()) html+='<button class="btn btn-sm btn-danger" data-perma="'+x.modId+'|'+x.rec.id+'">حذف نهائي</button>';
+      html+='</td></tr>';
+    });
+  }
+  html+='</tbody></table></div></div>';
+  return html;
+}
+function bindArchiveEvents(){
+  var sel=document.getElementById('archiveFilterSel');
+  if(sel) sel.onchange=function(){ archiveFilter=sel.value; render(); };
+  document.querySelectorAll('[data-restore]').forEach(function(b){
+    b.onclick=function(){ var p=b.dataset.restore.split('|'); archiveRecord(p[0], p[1], false); };
+  });
+  document.querySelectorAll('[data-perma]').forEach(function(b){
+    b.onclick=function(){ var p=b.dataset.perma.split('|'); if(confirm('حذف نهائي لا يمكن التراجع عنه. متابعة؟')) deleteRecord(p[0], p[1]); };
+  });
+}
+
+/* ================= REPORTS ================= */
+var reportSelection={};
+ALL_MODULES.forEach(function(m){ reportSelection[m.id]=true; });
+var reportIncludeArchived=false;
+
+function renderReportsView(){
+  var html='<div class="panel">';
+  html+='<h3><span class="sq"></span>إعداد التقرير</h3>';
+  html+='<div class="checklist">';
+  ALL_MODULES.forEach(function(m){
+    html+='<label class="checkline"><input type="checkbox" data-repchk="'+m.id+'" '+(reportSelection[m.id]?'checked':'')+'> '+esc(m.label)+'</label>';
+  });
+  html+='</div>';
+  html+='<label class="checkline"><input type="checkbox" id="repArchived" '+(reportIncludeArchived?'checked':'')+'> تضمين السجلات المؤرشفة</label>';
+  html+='<div class="toolbar" style="margin-top:14px"><button class="btn btn-primary" id="btnGenReport">إنشاء التقرير</button></div>';
+  html+='</div>';
+
+  if(APP.report){
+    html+='<div class="panel" id="reportPreview">';
+    html+='<h3><span class="sq"></span>معاينة التقرير — '+fmtDate(new Date().toISOString())+'</h3>';
+    html+='<div class="cards-grid">';
+    html+=statCard('إجمالي السجلات في التقرير', APP.report.total, '');
+    html+=statCard('عدد الفئات المشمولة', APP.report.categories.length, 'accent');
+    html+='</div>';
+    APP.report.categories.forEach(function(cat){
+      html+='<div class="report-block"><h4>'+esc(cat.label)+' — ('+cat.rows.length+' سجل)</h4>';
+      if(!cat.rows.length){ html+='<div class="muted small">لا توجد سجلات.</div>'; }
+      else{
+        html+='<div class="table-wrap"><table class="data"><thead><tr>';
+        cat.headers.forEach(function(h){ html+='<th>'+esc(h)+'</th>'; });
+        html+='</tr></thead><tbody>';
+        cat.rows.forEach(function(row){
+          html+='<tr>'+row.map(function(c){return '<td>'+esc(c)+'</td>';}).join('')+'</tr>';
+        });
+        html+='</tbody></table></div>';
+      }
+      html+='</div>';
+    });
+    html+='</div>';
+    html+='<div class="toolbar">'+
+      '<button class="btn btn-accent" id="btnExpExcel">تصدير Excel</button>'+
+      '<button class="btn" id="btnExpWord">تصدير Word</button>'+
+      '<button class="btn" id="btnExpPdf">تصدير PDF</button>'+
+      '<button class="btn" id="btnExpInfo">تصدير انفوجرافيك (صورة)</button>'+
+    '</div>';
+  }
+  return html;
+}
+
+function bindReportsEvents(){
+  document.querySelectorAll('[data-repchk]').forEach(function(cb){
+    cb.onchange=function(){ reportSelection[cb.dataset.repchk]=cb.checked; };
+  });
+  var ar=document.getElementById('repArchived');
+  if(ar) ar.onchange=function(){ reportIncludeArchived=ar.checked; };
+  var genBtn=document.getElementById('btnGenReport');
+  if(genBtn) genBtn.onclick=function(){ generateReport(); render(); };
+
+  var e1=document.getElementById('btnExpExcel'); if(e1) e1.onclick=exportReportExcel;
+  var e2=document.getElementById('btnExpWord'); if(e2) e2.onclick=exportReportWord;
+  var e3=document.getElementById('btnExpPdf'); if(e3) e3.onclick=exportReportPdf;
+  var e4=document.getElementById('btnExpInfo'); if(e4) e4.onclick=exportReportInfographic;
+}
+
+function generateReport(){
+  var db=APP.db;
+  var cats=[];
+  var total=0;
+  ALL_MODULES.forEach(function(m){
+    if(!reportSelection[m.id]) return;
+    var recs = m.id==='schools' ? db.schools.slice() : db.records.filter(function(r){return r.category===m.id;});
+    if(!reportIncludeArchived) recs=recs.filter(function(r){return !r.archived;});
+    var headers=m.fields.filter(function(f){return f.type!=='textarea';}).map(function(f){return f.label;});
+    var rows=recs.map(function(r){
+      return m.fields.filter(function(f){return f.type!=='textarea';}).map(function(f){
+        var v=r[f.key];
+        if(f.type==='school'){ var s=db.schools.find(function(x){return x.id===v;}); return s?s.name:''; }
+        if(f.type==='date' && v) return fmtDate(v);
+        return v||'';
+      });
+    });
+    total+=recs.length;
+    cats.push({id:m.id, label:m.label, headers:headers, rows:rows});
+  });
+  APP.report={generatedAt:new Date().toISOString(), total:total, categories:cats};
+  toast('تم إنشاء التقرير');
+}
+
+function exportReportExcel(){
+  if(!APP.report) return;
+  var wb=XLSX.utils.book_new();
+  var summaryRows=APP.report.categories.map(function(c){return {'الفئة':c.label, 'عدد السجلات':c.rows.length};});
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), 'ملخص');
+  APP.report.categories.forEach(function(c){
+    if(!c.rows.length) return;
+    var rows=c.rows.map(function(row){
+      var o={}; c.headers.forEach(function(h,i){ o[h]=row[i]; }); return o;
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), c.label.slice(0,28));
+  });
+  XLSX.writeFile(wb, 'تقرير-متابعة-التعليم-بدر.xlsx');
+}
+
+function exportReportWord(){
+  if(!APP.report) return;
+  var body='<h1 style="font-family:Tajawal,Arial">تقرير متابعة التعليم — محافظة بدر</h1>';
+  body+='<p>تاريخ الإنشاء: '+fmtDate(APP.report.generatedAt)+' — إجمالي السجلات: '+APP.report.total+'</p>';
+  APP.report.categories.forEach(function(c){
+    body+='<h3>'+esc(c.label)+' ('+c.rows.length+' سجل)</h3>';
+    if(c.rows.length){
+      body+='<table border="1" cellspacing="0" cellpadding="5" style="border-collapse:collapse;width:100%"><tr>'+c.headers.map(function(h){return '<th>'+esc(h)+'</th>';}).join('')+'</tr>';
+      c.rows.forEach(function(row){ body+='<tr>'+row.map(function(cell){return '<td>'+esc(cell)+'</td>';}).join('')+'</tr>'; });
+      body+='</table><br>';
+    }
+  });
+  var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'+
+    '<head><meta charset="utf-8"><style>body{font-family:Arial;direction:rtl;text-align:right}table{width:100%}th,td{border:1px solid #999;padding:5px;font-size:12px}</style></head>'+
+    '<body>'+body+'</body></html>';
+  var blob=new Blob(['\ufeff', html], {type:'application/msword'});
+  download('تقرير-متابعة-التعليم-بدر.doc', blob);
+}
+
+function exportReportPdf(){
+  var el=document.getElementById('reportPreview');
+  if(!el || !window.html2canvas || !window.jspdf) { toast('تعذر تجهيز أدوات التصدير', true); return; }
+  toast('جارٍ تجهيز ملف PDF...');
+  html2canvas(el, {scale:2, backgroundColor:'#ffffff'}).then(function(canvas){
+    var pdf=new window.jspdf.jsPDF('p','mm','a4');
+    var pageW=210, pageH=297;
+    var imgW=pageW-20;
+    var imgH=canvas.height*imgW/canvas.width;
+    var heightLeft=imgH;
+    var position=10;
+    var imgData=canvas.toDataURL('image/png');
+    pdf.addImage(imgData,'PNG',10,position,imgW,imgH);
+    heightLeft-=(pageH-20);
+    while(heightLeft>0){
+      position = heightLeft - imgH + 10;
+      pdf.addPage();
+      pdf.addImage(imgData,'PNG',10,position,imgW,imgH);
+      heightLeft-=(pageH-20);
+    }
+    pdf.save('تقرير-متابعة-التعليم-بدر.pdf');
+  }).catch(function(){ toast('تعذر إنشاء ملف PDF', true); });
+}
+
+function exportReportInfographic(){
+  if(!APP.report) return;
+  var root=document.getElementById('infographicRoot');
+  var html='<div style="font-family:Tajawal,Arial;text-align:center;margin-bottom:26px">'+
+    '<div style="color:#C9A227;font-weight:700;font-size:14px;letter-spacing:1px">إدارة التعليم — محافظة بدر</div>'+
+    '<div style="font-size:30px;font-weight:800;margin-top:6px">تقرير متابعة التعليم</div>'+
+    '<div style="font-size:13px;color:#BFD8CD;margin-top:4px">'+fmtDate(APP.report.generatedAt)+'</div></div>';
+  html+='<div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;margin-bottom:26px">';
+  html+='<div style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);border-radius:14px;padding:18px 26px;min-width:160px">'+
+    '<div style="font-size:12px;color:#BFD8CD">إجمالي السجلات</div><div style="font-size:32px;font-weight:800;margin-top:6px">'+APP.report.total+'</div></div>';
+  html+='<div style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);border-radius:14px;padding:18px 26px;min-width:160px">'+
+    '<div style="font-size:12px;color:#BFD8CD">عدد الفئات</div><div style="font-size:32px;font-weight:800;margin-top:6px">'+APP.report.categories.length+'</div></div>';
+  html+='</div>';
+  html+='<div style="display:flex;flex-direction:column;gap:10px">';
+  var maxc=Math.max.apply(null, APP.report.categories.map(function(c){return c.rows.length;}).concat([1]));
+  APP.report.categories.forEach(function(c){
+    var pct=(c.rows.length/maxc*100);
+    html+='<div style="display:flex;align-items:center;gap:10px;font-size:13px">'+
+      '<div style="width:220px;text-align:right;color:#EAF3EF">'+esc(c.label)+'</div>'+
+      '<div style="flex:1;background:rgba(255,255,255,.15);border-radius:6px;height:14px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:#C9A227"></div></div>'+
+      '<div style="width:34px;font-weight:700">'+c.rows.length+'</div></div>';
+  });
+  html+='</div>';
+  root.innerHTML=html;
+  toast('جارٍ تجهيز الصورة...');
+  html2canvas(root, {scale:2, backgroundColor:null}).then(function(canvas){
+    canvas.toBlob(function(blob){ download('انفوجرافيك-تعليم-بدر.png', blob); });
+  }).catch(function(){ toast('تعذر إنشاء الصورة', true); });
+}
+
+/* ================= USERS (admin) ================= */
+async function loadUsersCache(){
+  try{
+    var res = await sb.from('profiles').select('*').order('created_at',{ascending:false});
+    if(res.error) throw res.error;
+    APP.usersCache = res.data;
+  }catch(err){
+    APP.usersCache = [];
+    toast('تعذر تحميل المستخدمين: '+(err&&err.message?err.message:''), true);
+  }
+  render();
+}
+function renderUsersView(){
+  if(!APP.usersCache){
+    loadUsersCache();
+    return '<div class="panel">جارٍ تحميل المستخدمين...</div>';
+  }
+  var users=APP.usersCache;
+  var html='<div class="panel">';
+  html+='<div class="table-wrap"><table class="data"><thead><tr><th>الاسم</th><th>البريد الإلكتروني</th><th>الصلاحية</th><th>الحالة</th><th>تاريخ الإنشاء</th><th>إجراءات</th></tr></thead><tbody>';
+  if(!users.length){
+    html+='<tr class="empty-row"><td colspan="6">لا يوجد مستخدمون بعد.</td></tr>';
+  }
+  users.forEach(function(u){
+    html+='<tr><td>'+esc(u.name)+'</td><td>'+esc(u.username)+'</td>';
+    html+='<td><select data-role="'+u.id+'" '+(u.id===APP.currentUser.id?'disabled':'')+'>'+
+      ['admin','editor','viewer'].map(function(r){return '<option value="'+r+'" '+(r===u.role?'selected':'')+'>'+roleLabel(r)+'</option>';}).join('')+
+      '</select></td>';
+    html+='<td><span class="badge status-'+u.status+'">'+({pending:'قيد المراجعة',approved:'معتمد',rejected:'مرفوض'}[u.status])+'</span></td>';
+    html+='<td>'+fmtDate(u.created_at)+'</td>';
+    html+='<td class="flexrow">';
+    if(u.status==='pending'){
+      html+='<button class="btn btn-sm btn-primary" data-approve="'+u.id+'">موافقة</button>';
+      html+='<button class="btn btn-sm btn-danger" data-reject="'+u.id+'">رفض</button>';
+    }
+    if(u.status==='approved' && u.id!==APP.currentUser.id){
+      html+='<button class="btn btn-sm" data-disable="'+u.id+'">تعطيل</button>';
+    }
+    if(u.status==='rejected'){
+      html+='<button class="btn btn-sm btn-primary" data-approve="'+u.id+'">موافقة</button>';
+    }
+    html+='</td></tr>';
+  });
+  html+='</tbody></table></div>';
+  html+='<div class="muted small" style="margin-top:10px">ملاحظة: حذف حساب مستخدم نهائياً من نظام الدخول يتطلب إجراءً من داخل لوحة Supabase مباشرة (Authentication → Users) لأسباب أمنية.</div>';
+  html+='</div>';
+  return html;
+}
+function bindUsersEvents(){
+  document.querySelectorAll('[data-role]').forEach(function(sel){
+    sel.onchange=async function(){
+      try{
+        var res=await sb.from('profiles').update({role:sel.value}).eq('id', sel.dataset.role);
+        if(res.error) throw res.error;
+        toast('تم تحديث الصلاحية'); APP.usersCache=null; render();
+      }catch(err){ toast('تعذر تحديث الصلاحية: '+(err&&err.message?err.message:''), true); }
+    };
+  });
+  document.querySelectorAll('[data-approve]').forEach(function(b){
+    b.onclick=async function(){
+      try{
+        var res=await sb.from('profiles').update({status:'approved'}).eq('id', b.dataset.approve);
+        if(res.error) throw res.error;
+        toast('تمت الموافقة على الحساب'); APP.usersCache=null; render();
+      }catch(err){ toast('تعذر تنفيذ العملية: '+(err&&err.message?err.message:''), true); }
+    };
+  });
+  document.querySelectorAll('[data-reject]').forEach(function(b){
+    b.onclick=async function(){
+      try{
+        var res=await sb.from('profiles').update({status:'rejected'}).eq('id', b.dataset.reject);
+        if(res.error) throw res.error;
+        toast('تم رفض الحساب'); APP.usersCache=null; render();
+      }catch(err){ toast('تعذر تنفيذ العملية: '+(err&&err.message?err.message:''), true); }
+    };
+  });
+  document.querySelectorAll('[data-disable]').forEach(function(b){
+    b.onclick=async function(){
+      try{
+        var res=await sb.from('profiles').update({status:'rejected'}).eq('id', b.dataset.disable);
+        if(res.error) throw res.error;
+        toast('تم تعطيل الحساب'); APP.usersCache=null; render();
+      }catch(err){ toast('تعذر تنفيذ العملية: '+(err&&err.message?err.message:''), true); }
+    };
+  });
+}
+
+/* ================= INIT ================= */
+async function init(){
+  try{
+    var sessRes = await sb.auth.getSession();
+    var session = sessRes.data && sessRes.data.session;
+    if(session){
+      var prof = await fetchProfile(session.user.id);
+      if(prof && prof.status==='approved'){
+        APP.currentUser = profileToUser(prof);
+        await fetchAll();
+      }else{
+        try{ await sb.auth.signOut(); }catch(e){}
+      }
+    }
+    render();
+  }catch(err){
+    document.getElementById('root').innerHTML =
+      '<div style="max-width:520px;margin:60px auto;font-family:Tahoma,Arial;background:#fff;'+
+      'border:1px solid #eee;border-radius:12px;padding:24px;direction:rtl;text-align:right;box-shadow:0 6px 20px rgba(0,0,0,.08)">'+
+      '<h2 style="margin-top:0">تعذر تشغيل التطبيق</h2>'+
+      '<p style="color:#555;font-size:13.5px">حدث خطأ غير متوقع أثناء الاتصال بقاعدة البيانات. جرّب إعادة تحميل الصفحة.</p>'+
+      '<pre style="background:#f7f7f7;padding:10px;border-radius:8px;font-size:11px;overflow:auto;color:#b3423a">'+esc(String(err && err.message || err))+'</pre>'+
+      '</div>';
+  }
+}
+init();
+
+})();
+
+</script>
+</body>
+</html>
