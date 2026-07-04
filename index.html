@@ -740,7 +740,7 @@ function renderOverview(){
   var totalRecords=db.records.filter(function(r){return !r.archived;}).length;
   var internalCount=db.records.filter(function(r){var c=CATEGORIES.find(function(x){return x.id===r.category;});return c&&c.section==='internal'&&!r.archived;}).length;
   var sharedCount=db.records.filter(function(r){var c=CATEGORIES.find(function(x){return x.id===r.category;});return c&&c.section==='shared'&&!r.archived;}).length;
-  var usersActive=db.users.filter(function(u){return u.status==='approved';}).length;
+  var linksCount=db.formLinks.length;
   var archivedCount=db.records.filter(function(r){return r.archived;}).length;
 
   var statusCounts={};
@@ -761,7 +761,7 @@ function renderOverview(){
     statCard('سجلات القضايا الداخلية', internalCount, 'accent')+
     statCard('سجلات القضايا المشتركة', sharedCount, 'info')+
     statCard('إجمالي السجلات النشطة', totalRecords, '')+
-    statCard('مستخدمون معتمدون', usersActive, 'accent')+
+    statCard('روابط نماذج مضافة', linksCount, 'accent')+
     statCard('سجلات مؤرشفة', archivedCount, 'danger')+
   '</div>';
 
