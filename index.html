@@ -1171,9 +1171,9 @@ function bindModuleEvents(modId){
   var impBtn=document.getElementById('btnImport');
   var fileInput=document.getElementById('fileImport');
   if(impBtn && fileInput){
-    impBtn.onclick=function(){ fileInput.click(); };
+    impBtn.onclick=function(){ openImportChoiceModal(modId, fileInput); };
     fileInput.onchange=function(){
-      if(fileInput.files && fileInput.files[0]) importModuleExcel(modId, fileInput.files[0]);
+      if(fileInput.files && fileInput.files[0]) importModuleExcel(modId, fileInput.files[0], fileInput.dataset.replaceMode==='1');
       fileInput.value='';
     };
   }
@@ -1437,7 +1437,27 @@ function recordSignature(mod, rec){
   return mod.fields.map(function(f){ return String(rec[f.key]!==undefined?rec[f.key]:''); }).join('|');
 }
 
-async function importModuleExcel(modId, file){
+function openImportChoiceModal(modId, fileInput){
+  var mod=getModule(modId);
+  var html='<h3>استيراد إكسل</h3><div class="modal-sub">'+esc(mod.label)+'</div>';
+  html+='<p class="small muted">ماذا تريد أن تفعل بالسجلات الحالية في هذه الفئة عند الاستيراد؟</p>';
+  html+='<div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">';
+  html+='<button type="button" class="btn btn-primary" id="impModeAdd" style="justify-content:flex-start;padding:12px 14px">'+
+    '<b>➕ إضافة إلى السجلات الحالية</b><br><span class="small" style="opacity:.85">يبقي كل ما هو موجود ويضيف صفوف الملف الجديد فوقها</span></button>';
+  html+='<button type="button" class="btn btn-danger" id="impModeReplace" style="justify-content:flex-start;padding:12px 14px">'+
+    '<b>🗑 استبدال كامل</b><br><span class="small" style="opacity:.85">يحذف كل السجلات الحالية في هذه الفئة نهائياً، ثم يستورد الملف الجديد بدلاً منها</span></button>';
+  html+='</div>';
+  html+='<div class="modal-actions"><button type="button" class="btn" id="modalCancel">إلغاء</button></div>';
+  openModal(html);
+  document.getElementById('modalCancel').onclick=closeModal;
+  document.getElementById('impModeAdd').onclick=function(){ fileInput.dataset.replaceMode='0'; closeModal(); fileInput.click(); };
+  document.getElementById('impModeReplace').onclick=function(){
+    if(!confirm('سيتم حذف كل السجلات الحالية في "'+mod.label+'" نهائياً قبل الاستيراد. لا يمكن التراجع عن هذه الخطوة. متابعة؟')){ return; }
+    fileInput.dataset.replaceMode='1'; closeModal(); fileInput.click();
+  };
+}
+
+async function importModuleExcel(modId, file, replaceMode){
   var mod=getModule(modId);
   var reader=new FileReader();
   reader.onload=async function(e){
@@ -1450,6 +1470,24 @@ async function importModuleExcel(modId, file){
     }catch(err){
       toast('تعذرت قراءة الملف، تأكد من صيغة الإكسل', true); return;
     }
+
+    var deletedCount=0;
+    if(replaceMode){
+      toast('جارٍ حذف السجلات الحالية...');
+      var currentIds = modId==='schools'
+        ? APP.db.schools.map(function(r){return r.id;})
+        : APP.db.records.filter(function(r){return r.category===modId;}).map(function(r){return r.id;});
+      for(var d=0; d<currentIds.length; d++){
+        try{
+          await dbDelete(modId, currentIds[d]);
+          var store=getStore(modId);
+          var idx=store.findIndex(function(r){return r.id===currentIds[d];});
+          if(idx>=0) store.splice(idx,1);
+          deletedCount++;
+        }catch(errD){}
+      }
+    }
+
     toast('جارٍ استيراد '+rows.length+' صف...');
     var added=0, skipped=0, failed=0;
     for(var i=0;i<rows.length;i++){
@@ -1464,7 +1502,8 @@ async function importModuleExcel(modId, file){
       }catch(err2){ failed++; }
     }
     render();
-    var msg='تم استيراد '+added+' سجل';
+    var msg = replaceMode ? ('تم حذف '+deletedCount+' سجل سابق، و') : 'تم ';
+    msg+='استيراد '+added+' سجل جديد';
     if(skipped) msg+=' — تم تجاهل '+skipped+' صف لعدم اكتمال الحقول المطلوبة';
     if(failed) msg+=' — تعذر حفظ '+failed+' صف';
     toast(msg);
