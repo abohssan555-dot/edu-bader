@@ -308,7 +308,7 @@ function personFields(extra){
 }
 
 var SCHOOL_MODULE = {
-  id:'schools', section:'base', label:'المدارس (قاعدة البيانات الأساسية)', icon:'●',
+  id:'schools', section:'base', label:'بيانات المدارس', icon:'●',
   fields:[
     T.text('name','اسم المدرسة',true),
     T.select('gender','نوع المدرسة',['بنين','بنات']),
@@ -321,6 +321,8 @@ var SCHOOL_MODULE = {
     T.textarea('notes','ملاحظات')
   ]
 };
+
+var PERF_OPTS=['التهيئة','الانطلاق','التقدم','التميز','لا يوجد'];
 
 var CATEGORIES = [
   {id:'exec_team', section:'internal', group:'المشرفون', label:'الفريق التنفيذي', fields:personFields([T.text('position','المسمى الوظيفي')])},
@@ -341,7 +343,59 @@ var CATEGORIES = [
 
   {id:'national_events', section:'shared', group:null, label:'المناسبات الوطنية', fields:issueFields([T.text('eventName','اسم المناسبة')])},
   {id:'community_partnership', section:'shared', group:null, label:'الشراكة المجتمعية', fields:issueFields([T.text('partner','الجهة الشريكة')])},
-  {id:'other_shared', section:'shared', group:null, label:'أخرى', fields:issueFields([T.text('entity','الجهة المعنية')])}
+  {id:'other_shared', section:'shared', group:null, label:'أخرى', fields:issueFields([T.text('entity','الجهة المعنية')])},
+
+  {id:'school_performance', section:'base', group:null, label:'الأداء المدرسي', fields:[
+    T.school('schoolId','اسم المدرسة'),
+    T.text('statNumber','الرقم الإحصائي للمدرسة'),
+    T.select('stage','المرحلة',['ابتدائي','متوسط','ثانوي']),
+    T.select('gender','الجنس',['بنين','بنات']),
+    T.select('buildingType','نوع المبنى',['حكومي','مستأجر']),
+    T.select('buildingIndependence','استقلالية المبنى',['مستقل','مشترك']),
+    T.select('adminIndependence','استقلالية الإدارة',['مشتركة بالإدارة','مستقلة بالإدارة']),
+    T.select('period','الفترة',['صباحي','مسائي']),
+    T.select('withinDelegationDistance','ضمن مسافة الانتداب',['نعم','لا']),
+    T.select('historicalPerformance','أداء المدرسة في التقويم عبر السنوات (نصاً)',PERF_OPTS),
+    T.num('historicalPerformancePct','نسبة الأداء عبر السنوات (رقماً)'),
+    T.select('lastReviewType','آخر تقويم مدرسي',['خارجي','ذاتي','لا يوجد']),
+    T.select('currentPerformance','مستوى الأداء العام الحالي (نصاً)',PERF_OPTS),
+    T.num('currentPerformancePct','نسبة الأداء العام الحالي (رقماً)'),
+    T.select('learningOutcomesLevel','مستوى مجال نواتج التعلم (نصاً)',PERF_OPTS),
+    T.num('learningOutcomesPct','نسبة مجال نواتج التعلم (رقماً)'),
+    T.select('receivesSupport','المدرسة تتلقى الدعم',['نعم','لا']),
+    T.text('supporter1Name','اسم مقدم خدمة الدعم الأول'),
+    T.text('supporter1Id','رقم السجل المدني - مقدم الدعم الأول'),
+    T.textarea('supportAreas1','مجالات الدعم - الأول'),
+    T.text('supporter2Name','اسم مقدم خدمة الدعم الثاني'),
+    T.text('supporter2Id','رقم السجل المدني - مقدم الدعم الثاني'),
+    T.textarea('supportAreas2','مجالات الدعم - الثاني'),
+    T.text('principalName','اسم مدير المدرسة'),
+    T.text('principalId','رقم السجل المدني لمدير المدرسة'),
+    T.text('principalPhone','رقم جوال مدير المدرسة'),
+    T.date('date','تاريخ التحديث'),
+    T.textarea('notes','ملاحظات')
+  ]},
+
+  {id:'sector_info', section:'base', group:null, label:'معلومات عامة عن القطاع التعليمي', fields:[
+    T.text('academicYear','العام الدراسي'),
+    T.num('totalSchools','إجمالي عدد المدارس'),
+    T.num('boysSchools','عدد مدارس البنين'),
+    T.num('girlsSchools','عدد مدارس البنات'),
+    T.num('totalStudents','إجمالي عدد الطلاب'),
+    T.num('maleStudents','عدد الطلاب (بنين)'),
+    T.num('femaleStudents','عدد الطالبات (بنات)'),
+    T.num('maleTeachers','عدد المعلمين'),
+    T.num('femaleTeachers','عدد المعلمات'),
+    T.num('malePrincipals','عدد المدراء'),
+    T.num('femalePrincipals','عدد المديرات'),
+    T.num('maleAdmins','عدد الإداريين'),
+    T.num('femaleAdmins','عدد الإداريات'),
+    T.num('kindergartens','عدد رياض الأطفال'),
+    T.num('specialEdPrograms','عدد برامج التربية الخاصة'),
+    T.num('avgDensity','متوسط الكثافة الطلابية (طالب/فصل)'),
+    T.date('date','تاريخ التحديث'),
+    T.textarea('notes','ملاحظات عامة')
+  ]}
 ];
 
 var ALL_MODULES = [SCHOOL_MODULE].concat(CATEGORIES);
@@ -349,7 +403,11 @@ function getModule(id){ return ALL_MODULES.find(function(m){ return m.id===id; }
 
 var NAV = [
   {type:'link', id:'overview', label:'نظرة عامة'},
-  {type:'link', id:'schools', label:'قاعدة البيانات الأساسية'},
+  {type:'section', label:'قاعدة البيانات الأساسية', children:[
+    {type:'link', id:'schools'},
+    {type:'link', id:'school_performance'},
+    {type:'link', id:'sector_info'}
+  ]},
   {type:'section', label:'القضايا الداخلية', children:[
     {type:'group', label:'المشرفون', children:['exec_team','providers','admin_supervisors']},
     {type:'group', label:'المدارس', children:['discipline','commitment','teachers','students','school_services','transport']},
@@ -660,10 +718,12 @@ function currentTitle(){
 }
 function currentCrumb(){
   var v=APP.view.id;
+  if(v==='schools') return 'قاعدة البيانات الأساسية';
   var cat=CATEGORIES.find(function(c){return c.id===v;});
   if(!cat) return '';
   if(cat.section==='internal') return 'القضايا الداخلية'+(cat.group?(' / '+cat.group):'');
   if(cat.section==='shared') return 'القضايا المشتركة مع جهات أخرى';
+  if(cat.section==='base') return 'قاعدة البيانات الأساسية';
   return '';
 }
 
@@ -804,7 +864,14 @@ function statCard(label,num,cls){
 var moduleSearch={}; // per-module search text
 
 function recordDisplayTitle(rec, mod){
-  return rec.title || rec.name || '—';
+  if(rec.title) return rec.title;
+  if(rec.name) return rec.name;
+  if(rec.schoolId){
+    var s=APP.db.schools.find(function(x){return x.id===rec.schoolId;});
+    if(s) return s.name;
+  }
+  if(rec.academicYear) return 'بيانات القطاع — العام '+rec.academicYear;
+  return '—';
 }
 
 function renderModuleView(modId){
@@ -832,9 +899,20 @@ function renderModuleView(modId){
     html+='<button class="btn" id="btnImport">استيراد إكسل</button>';
     html+='<input type="file" id="fileImport" accept=".xlsx,.xls,.csv" style="display:none">';
     html+='<button class="btn" id="btnTemplate">تنزيل قالب</button>';
+    if(modId==='school_performance'){
+      html+='<button class="btn btn-accent" id="btnOfficialImport">تحديث من الملف الرسمي (وزاري)</button>';
+      html+='<input type="file" id="fileOfficialImport" accept=".xlsx,.xls" style="display:none">';
+    }
   }
   html+='<button class="btn" id="btnExport">تصدير إكسل</button>';
   html+='</div>';
+
+  if(modId==='school_performance' && canEdit()){
+    html+='<div class="panel" style="padding:12px 16px;margin-bottom:16px;border-inline-start:4px solid var(--accent)">'+
+      '<div class="small muted">زر "تحديث من الملف الرسمي" يقرأ ملف قاعدة بيانات المدارس بصيغته الوزارية الأصلية مباشرة (بدون أي تعديل عليه). '+
+      'يتم التعرّف على كل مدرسة عبر <strong>الرقم الإحصائي</strong>: إذا كانت موجودة مسبقاً يتم تحديث بياناتها، وإذا كانت جديدة تُضاف تلقائياً (وتُنشأ المدرسة في قاعدة بيانات المدارس إن لم تكن موجودة). '+
+      'استخدمه في كل مرة يصلك فيها ملف محدّث بنفس النموذج.</div></div>';
+  }
 
   if(canEdit()){
     html+='<div class="panel" style="padding:14px 16px;margin-bottom:16px">';
@@ -910,6 +988,15 @@ function bindModuleEvents(modId){
     fileInput.onchange=function(){
       if(fileInput.files && fileInput.files[0]) importModuleExcel(modId, fileInput.files[0]);
       fileInput.value='';
+    };
+  }
+  var offBtn=document.getElementById('btnOfficialImport');
+  var offFile=document.getElementById('fileOfficialImport');
+  if(offBtn && offFile){
+    offBtn.onclick=function(){ offFile.click(); };
+    offFile.onchange=function(){
+      if(offFile.files && offFile.files[0]) importOfficialPerformanceFile(offFile.files[0]);
+      offFile.value='';
     };
   }
   var linkForm=document.getElementById('addLinkForm');
@@ -1126,7 +1213,110 @@ function importModuleExcel(modId, file){
   reader.readAsArrayBuffer(file);
 }
 
-/* ================= ARCHIVE VIEW ================= */
+/* ---- استيراد ملف الأداء المدرسي بصيغته الوزارية الأصلية (بدون أي تعديل) ----
+   يتعرف على كل مدرسة عبر الرقم الإحصائي: يحدّث السجل إن كان موجوداً، ويضيفه إن كان جديداً،
+   وينشئ المدرسة تلقائياً في قاعدة بيانات المدارس إن لم تكن مسجّلة مسبقاً. */
+async function importOfficialPerformanceFile(file){
+  var modId='school_performance';
+  var reader=new FileReader();
+  reader.onload=async function(e){
+    var rows;
+    try{
+      var data=new Uint8Array(e.target.result);
+      var wb=XLSX.read(data,{type:'array'});
+      var sheetName = wb.SheetNames.find(function(n){ return n.indexOf('مدرسة')>=0; }) || wb.SheetNames[0];
+      var ws=wb.Sheets[sheetName];
+      rows=XLSX.utils.sheet_to_json(ws,{header:1, defval:''});
+    }catch(err){
+      toast('تعذرت قراءة الملف، تأكد أنه بصيغة إكسل صحيحة', true); return;
+    }
+
+    var headerRowIdx=-1;
+    for(var i=0;i<rows.length;i++){
+      var c1=String(rows[i][1]||'');
+      if(c1.indexOf('اسم المدرسة')>=0){ headerRowIdx=i; break; }
+    }
+    if(headerRowIdx===-1){
+      toast('تعذر التعرف على تنسيق الملف. تأكد أنه الملف الرسمي دون تعديل على صفوف العناوين.', true); return;
+    }
+
+    var dataRows = rows.slice(headerRowIdx+1);
+    toast('جارٍ معالجة الملف...');
+
+    var added=0, updated=0, failed=0, schoolsCreated=0;
+    for(var r=0;r<dataRows.length;r++){
+      var row=dataRows[r];
+      var name=String(row[1]||'').trim();
+      if(!name) continue;
+      var statNumber=String(row[2]||'').trim();
+      var stage=String(row[3]||'').trim();
+      var gender=String(row[4]||'').trim();
+
+      var school=APP.db.schools.find(function(s){ return s.name && s.name.trim()===name; });
+      if(!school){
+        try{
+          var created=await dbInsertRecord('schools', {
+            name:name, gender:gender, stage:stage, studentsCount:'', teachersCount:'',
+            principal:String(row[24]||''), supervisor:'', location:'', notes:'أُنشئت تلقائياً من ملف الأداء الرسمي'
+          });
+          APP.db.schools.unshift(created);
+          school=created; schoolsCreated++;
+        }catch(errS){ failed++; continue; }
+      }
+
+      var recData={
+        schoolId: school.id,
+        statNumber: statNumber,
+        stage: stage,
+        gender: gender,
+        buildingType: String(row[5]||''),
+        buildingIndependence: String(row[6]||''),
+        adminIndependence: String(row[7]||''),
+        period: String(row[8]||''),
+        withinDelegationDistance: String(row[9]||''),
+        historicalPerformance: String(row[10]||''),
+        historicalPerformancePct: row[11]!==undefined? row[11]:'',
+        lastReviewType: String(row[12]||''),
+        currentPerformance: String(row[13]||''),
+        currentPerformancePct: row[14]!==undefined? row[14]:'',
+        learningOutcomesLevel: String(row[15]||''),
+        learningOutcomesPct: row[16]!==undefined? row[16]:'',
+        receivesSupport: String(row[17]||''),
+        supporter1Name: String(row[18]||''),
+        supporter1Id: String(row[19]||''),
+        supportAreas1: String(row[20]||''),
+        supporter2Name: String(row[21]||''),
+        supporter2Id: String(row[22]||''),
+        supportAreas2: String(row[23]||''),
+        principalName: String(row[24]||''),
+        principalId: String(row[25]||''),
+        principalPhone: String(row[26]||''),
+        date: todayISO()
+      };
+
+      var existing = statNumber ? APP.db.records.find(function(x){ return x.category===modId && String(x.statNumber||'')===statNumber; }) : null;
+      try{
+        if(existing){
+          var upd=await dbUpdateRecord(modId, existing.id, recData);
+          Object.assign(existing, upd);
+          updated++;
+        }else{
+          recData.source='الملف الرسمي';
+          var ins=await dbInsertRecord(modId, recData);
+          getStore(modId).unshift(ins);
+          added++;
+        }
+      }catch(errR){ failed++; }
+    }
+    render();
+    var msg='تم الاستيراد: '+added+' سجل جديد، '+updated+' تحديث لسجلات موجودة';
+    if(schoolsCreated) msg+='، '+schoolsCreated+' مدرسة أُضيفت تلقائياً';
+    if(failed) msg+='، تعذر حفظ '+failed+' صف';
+    toast(msg);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 var archiveFilter='';
 function renderArchiveView(){
   var db=APP.db;
