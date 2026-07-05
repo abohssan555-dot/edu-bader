@@ -1418,19 +1418,48 @@ function exportModuleTableImage(modId){
   }).catch(function(){ toast('تعذر إنشاء الصورة', true); });
 }
 
+function findRawValue(row, label){
+  var val='';
+  Object.keys(row).forEach(function(k){
+    if(k.trim()===label.trim()) val=row[k];
+  });
+  return val;
+}
 function mapRowToRecord(mod, row){
   var rec={};
   mod.fields.forEach(function(f){
-    var val='';
-    Object.keys(row).forEach(function(k){
-      if(k.trim()===f.label.trim()) val=row[k];
-    });
+    var val=findRawValue(row, f.label);
     if(f.type==='school' && val){
       var s=APP.db.schools.find(function(x){return x.name===String(val).trim();});
       val = s? s.id : '';
     }
     rec[f.key]=val;
   });
+  return rec;
+}
+async function resolveOrCreateSchool(name){
+  name=String(name||'').trim();
+  if(!name) return '';
+  var existing=APP.db.schools.find(function(x){return x.name===name;});
+  if(existing) return existing.id;
+  try{
+    var created=await dbInsertRecord('schools', {
+      name:name, gender:'', stage:'', studentsCount:'', teachersCount:'',
+      principal:'', supervisor:'', location:'', notes:'أُنشئت تلقائياً أثناء الاستيراد'
+    });
+    APP.db.schools.unshift(created);
+    return created.id;
+  }catch(e){ return ''; }
+}
+/* يكمل الحقول من نوع "مدرسة" التي لم تُطابَق، بإنشاء المدرسة تلقائياً إن كان اسمها مكتوباً في الملف */
+async function fillMissingSchoolLinks(mod, rec, rawRow){
+  for(var i=0;i<mod.fields.length;i++){
+    var f=mod.fields[i];
+    if(f.type==='school' && !rec[f.key]){
+      var raw=findRawValue(rawRow, f.label);
+      if(raw) rec[f.key]=await resolveOrCreateSchool(raw);
+    }
+  }
   return rec;
 }
 function recordSignature(mod, rec){
@@ -1489,9 +1518,12 @@ async function importModuleExcel(modId, file, replaceMode){
     }
 
     toast('جارٍ استيراد '+rows.length+' صف...');
-    var added=0, skipped=0, failed=0;
+    var added=0, skipped=0, failed=0, schoolsCreated=0;
     for(var i=0;i<rows.length;i++){
       var rec=mapRowToRecord(mod, rows[i]);
+      var beforeCount=APP.db.schools.length;
+      rec=await fillMissingSchoolLinks(mod, rec, rows[i]);
+      if(APP.db.schools.length>beforeCount) schoolsCreated++;
       var reqOk = mod.fields.filter(function(f){return f.required;}).every(function(f){return rec[f.key];});
       if(!reqOk){ skipped++; continue; }
       rec.source='استيراد إكسل';
@@ -1504,6 +1536,7 @@ async function importModuleExcel(modId, file, replaceMode){
     render();
     var msg = replaceMode ? ('تم حذف '+deletedCount+' سجل سابق، و') : 'تم ';
     msg+='استيراد '+added+' سجل جديد';
+    if(schoolsCreated) msg+='، وإنشاء '+schoolsCreated+' مدرسة تلقائياً';
     if(skipped) msg+=' — تم تجاهل '+skipped+' صف لعدم اكتمال الحقول المطلوبة';
     if(failed) msg+=' — تعذر حفظ '+failed+' صف';
     toast(msg);
@@ -1722,6 +1755,7 @@ async function syncLinkNow(link, btn){
     var added=0, skipped=0, duplicate=0, failed=0;
     for(var i=0;i<rows.length;i++){
       var rec=mapRowToRecord(mod, rows[i]);
+      rec=await fillMissingSchoolLinks(mod, rec, rows[i]);
       var reqOk = mod.fields.filter(function(f){return f.required;}).every(function(f){return rec[f.key];});
       if(!reqOk){ skipped++; continue; }
       var sig=recordSignature(mod, rec);
