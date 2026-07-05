@@ -132,17 +132,21 @@ details.navgroup[open]>summary:after{transform:rotate(0deg)}
 .btn[disabled]{opacity:.5;cursor:not-allowed}
 .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:center}
 .toolbar-filters{margin-bottom:10px}
-.toolbar-actions{margin-bottom:14px}
+.toolbar-actions{margin-bottom:14px;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;padding-bottom:2px}
 .search-box-sm{min-width:110px;max-width:150px;padding:6px 10px;font-size:12.5px}
 .btn .ic{display:inline-block;font-size:12px;transform:translateY(-1px)}
-.btn-icon-action{width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;border-radius:9px;background:var(--ok);color:#fff;border:none;font-size:16px;cursor:pointer;box-shadow:0 2px 6px rgba(47,122,77,.3);transition:.12s}
-.btn-icon-action:hover{background:#256B41;transform:translateY(-1px);box-shadow:0 4px 10px rgba(47,122,77,.4)}
+.btn-icon-action{height:30px;padding:0 11px;display:inline-flex;align-items:center;gap:5px;border-radius:8px;background:var(--ok);color:#fff;border:none;font-size:11.8px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 6px rgba(47,122,77,.28);transition:.12s}
+.btn-icon-action .ic{font-size:13px;line-height:1}
+.btn-icon-action:hover{background:#256B41;transform:translateY(-1px);box-shadow:0 4px 10px rgba(47,122,77,.38)}
 .stats-compact-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:14px}
 .stat-chip{font-size:12px;padding:4px 10px;background:var(--bg);border-radius:7px;border:1px solid var(--border);color:var(--muted);white-space:nowrap}
 .stat-chip b{color:var(--ink);font-weight:800}
 .stat-chip-main{background:var(--primary-soft);color:var(--primary-dark);border-color:var(--primary-soft)}
 .stat-chip-main b{color:var(--primary-dark)}
 .stat-sep{width:1px;height:18px;background:var(--border);margin:0 2px}
+.sticky-hscroll{position:fixed;bottom:0;height:14px;overflow-x:auto;overflow-y:hidden;z-index:45;background:var(--bg);border-top:1px solid var(--border)}
+.sticky-hscroll::-webkit-scrollbar{height:12px}
+#stickyHScrollInner{height:1px}
 
 /* أزرار وقوائم منسدلة صغيرة (⋮ لكل صف، وقائمة التصدير) */
 .dd-caret{font-size:10px;margin-inline-start:2px}
@@ -281,6 +285,7 @@ table.data.table-compact tbody tr:hover td{background:#E4EDE3}
 <div id="toastRoot"></div>
 <div id="modalRoot" class="modal-overlay"><div class="modal-box" id="modalBox"></div></div>
 <div id="floatingMenu" class="dd-menu" style="display:none;position:fixed;z-index:200;"></div>
+<div id="stickyHScroll" class="sticky-hscroll" style="display:none;"><div id="stickyHScrollInner"></div></div>
 <div id="root"></div>
 <div id="infographicRoot"></div>
 
@@ -639,10 +644,45 @@ function canEdit(){ return currentRole()==='admin' || currentRole()==='editor'; 
 /* ---------------- Render root ---------------- */
 function render(){
   var root=document.getElementById('root');
-  if(!APP.currentUser){ root.innerHTML = renderLogin(); bindLoginEvents(); return; }
+  if(!APP.currentUser){ root.innerHTML = renderLogin(); bindLoginEvents(); hideStickyScroll(); return; }
   root.innerHTML = renderShell();
   bindShellEvents();
+  setTimeout(updateStickyScrollbar, 0);
 }
+
+/* ---------------- شريط تمرير أفقي ثابت أسفل الشاشة (لا يختفي عند النزول للأسفل) ---------------- */
+function hideStickyScroll(){
+  var bar=document.getElementById('stickyHScroll');
+  if(bar) bar.style.display='none';
+}
+function updateStickyScrollbar(){
+  var bar=document.getElementById('stickyHScroll');
+  var inner=document.getElementById('stickyHScrollInner');
+  if(!bar || !inner) return;
+  var tw=document.querySelector('#content .table-wrap');
+  if(!tw || tw.scrollWidth<=tw.clientWidth+2){ bar.style.display='none'; bar._syncedTable=null; return; }
+  var rect=tw.getBoundingClientRect();
+  bar.style.left=Math.round(rect.left)+'px';
+  bar.style.width=Math.round(rect.width)+'px';
+  inner.style.width=tw.scrollWidth+'px';
+  bar.scrollLeft=tw.scrollLeft;
+  bar.style.display='block';
+  bar._syncedTable=tw;
+  tw.onscroll=function(){ if(bar._syncedTable===tw) bar.scrollLeft=tw.scrollLeft; };
+}
+(function(){
+  var barInitDone=false;
+  function initStickyScrollOnce(){
+    if(barInitDone) return; barInitDone=true;
+    var bar=document.getElementById('stickyHScroll');
+    if(!bar) return;
+    bar.onscroll=function(){ if(bar._syncedTable) bar._syncedTable.scrollLeft=bar.scrollLeft; };
+    window.addEventListener('resize', function(){ updateStickyScrollbar(); });
+  }
+  document.addEventListener('DOMContentLoaded', initStickyScrollOnce);
+  if(document.readyState!=='loading') initStickyScrollOnce();
+})();
+
 
 /* ================= LOGIN ================= */
 function renderLogin(){
@@ -1004,7 +1044,9 @@ function renderPerfStatsPanel(records){
   html+='<span class="stat-chip">ثانوي: <b>'+byStage['ثانوي']+'</b></span>';
   html+='<span class="stat-chip">بنين: <b>'+byGender['بنين']+'</b></span>';
   html+='<span class="stat-chip">بنات: <b>'+byGender['بنات']+'</b></span>';
-  html+='<span class="stat-sep"></span>';
+  html+='</div>';
+  html+='<div class="stats-compact-bar" style="margin-top:6px">';
+  html+='<span class="small muted">حسب نتيجة آخر تقويم:</span>';
   html+='<span class="perf-pill pf-excellent"><span class="d"></span>تميز: '+byPerf['التميز']+'</span>';
   html+='<span class="perf-pill pf-advanced"><span class="d"></span>تقدم: '+byPerf['التقدم']+'</span>';
   html+='<span class="perf-pill pf-developing"><span class="d"></span>انطلاق: '+byPerf['الانطلاق']+'</span>';
@@ -1084,20 +1126,20 @@ function renderModuleView(modId){
     sorted.sort(function(a,b){return new Date(b.createdAt||0)-new Date(a.createdAt||0);});
   }
 
-  /* الصف الأول: أزرار الإجراءات كأيقونات خضراء متناسقة */
+  /* الصف الأول: أزرار الإجراءات كأيقونات خضراء متناسقة مع تسمية مختصرة */
   var html='<div class="toolbar toolbar-actions">';
   if(canEdit()){
-    html+='<button class="btn-icon-action" id="btnAdd" title="إضافة سجل">＋</button>';
-    html+='<button class="btn-icon-action" id="btnImport" title="استيراد إكسل">⇪</button>';
+    html+='<button class="btn-icon-action" id="btnAdd" title="إضافة سجل"><span class="ic">＋</span>إضافة</button>';
+    html+='<button class="btn-icon-action" id="btnImport" title="استيراد إكسل"><span class="ic">⇪</span>استيراد</button>';
     html+='<input type="file" id="fileImport" accept=".xlsx,.xls,.csv" style="display:none">';
-    html+='<button class="btn-icon-action" id="btnTemplate" title="تنزيل قالب">⬇</button>';
+    html+='<button class="btn-icon-action" id="btnTemplate" title="تنزيل قالب"><span class="ic">⬇</span>قالب</button>';
     if(modId==='school_performance'){
-      html+='<button class="btn-icon-action" id="btnOfficialImport" title="تحديث من الملف الرسمي (وزاري)">⟳</button>';
+      html+='<button class="btn-icon-action" id="btnOfficialImport" title="تحديث من الملف الرسمي (وزاري)"><span class="ic">⟳</span>تحديث</button>';
       html+='<input type="file" id="fileOfficialImport" accept=".xlsx,.xls" style="display:none">';
-      if(isAdmin()) html+='<button class="btn-icon-action" id="btnCleanJunk" title="تنظيف سجلات غير صالحة">🧹</button>';
+      if(isAdmin()) html+='<button class="btn-icon-action" id="btnCleanJunk" title="تنظيف سجلات غير صالحة"><span class="ic">🧹</span>تنظيف</button>';
     }
   }
-  html+='<button type="button" class="btn-icon-action dd-trigger" data-ddtrigger="export" title="تصدير">⇩</button>';
+  html+='<button type="button" class="btn-icon-action dd-trigger" data-ddtrigger="export" title="تصدير"><span class="ic">⇩</span>تصدير</button>';
   html+='<template id="ddtpl_export">'+
       '<button type="button" id="expXlsx">📊 إكسل (.xlsx)</button>'+
       '<button type="button" id="expPdf">📄 PDF</button>'+
