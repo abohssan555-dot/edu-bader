@@ -122,7 +122,29 @@ details.navgroup[open]>summary:after{transform:rotate(0deg)}
 .btn-ghost{background:transparent;border-color:transparent;color:var(--primary)}
 .btn-sm{padding:5px 10px;font-size:12px;border-radius:7px}
 .btn[disabled]{opacity:.5;cursor:not-allowed}
-.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;align-items:center}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:center}
+.toolbar-filters{margin-bottom:10px}
+.toolbar-actions{margin-bottom:14px}
+.search-box-sm{min-width:150px;max-width:220px;padding:7px 11px;font-size:13px}
+.btn .ic{display:inline-block;font-size:12px;transform:translateY(-1px)}
+
+/* أزرار وقوائم منسدلة صغيرة (⋮ لكل صف، وقائمة التصدير) */
+.dd-caret{font-size:10px;margin-inline-start:2px}
+.btn-icon{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:7px;background:var(--surface);border:1px solid var(--border);font-size:15px;line-height:1;color:var(--muted)}
+.btn-icon:hover{border-color:var(--primary);color:var(--primary)}
+.dd-menu{background:#fff;border:1px solid var(--border);border-radius:9px;box-shadow:0 10px 30px rgba(20,40,30,.18);z-index:200;display:flex;flex-direction:column;min-width:150px;overflow:hidden;padding:4px}
+.dd-menu button{display:block;width:100%;text-align:right;background:none;border:none;padding:8px 10px;font-size:12.8px;border-radius:6px;color:var(--ink);cursor:pointer}
+.dd-menu button:hover{background:var(--primary-soft);color:var(--primary-dark)}
+.dd-menu button.dd-danger{color:var(--danger)}
+.dd-menu button.dd-danger:hover{background:var(--danger-soft)}
+
+/* لوحة الروابط */
+.links-panel{padding:16px 18px;margin-bottom:16px}
+.links-panel-head{display:flex;align-items:center;gap:8px;font-size:13.5px;margin-bottom:10px;color:var(--primary-dark)}
+.links-icon{font-size:16px}
+.pill-link{font-size:12.2px;padding:6px 13px;border-radius:20px;background:var(--info-soft);color:var(--info);text-decoration:none;display:inline-flex;gap:7px;align-items:center;border:1px solid transparent;font-weight:600;transition:.12s}
+.pill-link:hover{border-color:var(--info);background:#fff;box-shadow:var(--shadow)}
+.pl-dot{width:6px;height:6px;border-radius:50%;background:var(--info);flex:none}
 .toolbar .grow{flex:1}
 .search-box{padding:8px 12px;border:1px solid var(--border);border-radius:9px;min-width:200px;background:var(--surface)}
 
@@ -168,9 +190,7 @@ table.data.table-compact tbody tr:nth-child(odd){background:#F4F7F3}
 table.data.table-compact tbody tr:nth-child(even){background:#ECF1EA}
 table.data.table-compact tbody tr:hover td{background:#E4EDE3}
 
-.pill-link{font-size:11.5px;padding:5px 10px;border-radius:20px;background:var(--info-soft);color:var(--info);text-decoration:none;display:inline-flex;gap:5px;align-items:center;border:1px solid transparent}
-.pill-link:hover{border-color:var(--info)}
-.linkbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.linkbar{display:flex;flex-wrap:wrap;gap:8px}
 
 /* ---------- forms / modal ---------- */
 .field{margin-bottom:13px}
@@ -241,6 +261,7 @@ table.data.table-compact tbody tr:hover td{background:#E4EDE3}
 
 <div id="toastRoot"></div>
 <div id="modalRoot" class="modal-overlay"><div class="modal-box" id="modalBox"></div></div>
+<div id="floatingMenu" class="dd-menu" style="display:none;position:fixed;z-index:200;"></div>
 <div id="root"></div>
 <div id="infographicRoot"></div>
 
@@ -904,6 +925,11 @@ function perfPillClass(v){
   return m[v]||'';
 }
 
+function rowPerfBg(v){
+  var m={'التميز':'var(--ok-soft)','التقدم':'var(--info-soft)','الانطلاق':'var(--orange-soft)','التهيئة':'var(--danger-soft)'};
+  return m[v]||'';
+}
+
 function renderModuleView(modId){
   var mod=getModule(modId);
   var db=APP.db;
@@ -944,38 +970,49 @@ function renderModuleView(modId){
 
   var links=db.formLinks.filter(function(l){return l.category===modId;});
 
-  var html='<div class="toolbar">';
-  html+='<input class="search-box" id="modSearch" placeholder="بحث في السجلات..." value="'+esc(moduleSearch[modId]||'')+'">';
+  /* صف الفلاتر: بحث + نوع + مرحلة */
+  var html='<div class="toolbar toolbar-filters">';
+  html+='<input class="search-box search-box-sm" id="modSearch" placeholder="🔍 بحث..." value="'+esc(moduleSearch[modId]||'')+'">';
   if(hasGenderField){
-    html+='<select id="filterGender" class="search-box"><option value="">كل الأنواع</option>'+
+    html+='<select id="filterGender" class="search-box search-box-sm"><option value="">كل الأنواع</option>'+
       '<option value="بنين" '+(filt.gender==='بنين'?'selected':'')+'>بنين</option>'+
       '<option value="بنات" '+(filt.gender==='بنات'?'selected':'')+'>بنات</option></select>';
   }
   if(hasStageField){
-    html+='<select id="filterStage" class="search-box"><option value="">كل المراحل</option>'+
+    html+='<select id="filterStage" class="search-box search-box-sm"><option value="">كل المراحل</option>'+
       ['ابتدائي','متوسط','ثانوي'].map(function(s){return '<option value="'+s+'" '+(filt.stage===s?'selected':'')+'>'+s+'</option>';}).join('')+
       '</select>';
   }
-  html+='<span class="grow"></span>';
+  html+='</div>';
+
+  /* صف الإجراءات العامة: إضافة/استيراد/قالب/تحديث رسمي/تصدير */
+  html+='<div class="toolbar toolbar-actions">';
   if(canEdit()){
-    html+='<button class="btn btn-primary" id="btnAdd">+ إضافة سجل</button>';
-    html+='<button class="btn" id="btnImport">استيراد إكسل</button>';
+    html+='<button class="btn btn-primary" id="btnAdd"><span class="ic">＋</span> إضافة سجل</button>';
+    html+='<button class="btn" id="btnImport"><span class="ic">⇪</span> استيراد إكسل</button>';
     html+='<input type="file" id="fileImport" accept=".xlsx,.xls,.csv" style="display:none">';
-    html+='<button class="btn" id="btnTemplate">تنزيل قالب</button>';
+    html+='<button class="btn" id="btnTemplate"><span class="ic">⬇</span> تنزيل قالب</button>';
     if(modId==='school_performance'){
-      html+='<button class="btn btn-accent" id="btnOfficialImport">تحديث من الملف الرسمي (وزاري)</button>';
+      html+='<button class="btn btn-accent" id="btnOfficialImport"><span class="ic">⟳</span> تحديث من الملف الرسمي</button>';
       html+='<input type="file" id="fileOfficialImport" accept=".xlsx,.xls" style="display:none">';
     }
   }
-  html+='<button class="btn" id="btnExport">تصدير إكسل</button>';
+  html+='<span class="grow"></span>';
+  html+='<button type="button" class="btn dd-trigger" data-ddtrigger="export"><span class="ic">⇩</span> تصدير <span class="dd-caret">▾</span></button>';
+  html+='<template id="ddtpl_export">'+
+      '<button type="button" id="expXlsx">📊 إكسل (.xlsx)</button>'+
+      '<button type="button" id="expPdf">📄 PDF</button>'+
+      '<button type="button" id="expImg">🖼 صورة (PNG)</button>'+
+    '</template>';
   html+='</div>';
 
+  /* صف فلترة الأداء */
   if(hasPerfField){
-    html+='<div class="toolbar" style="margin-top:-6px">';
+    html+='<div class="toolbar" style="margin-top:-4px">';
     html+='<span class="small muted">تصفية حسب نتيجة آخر تقويم:</span>';
     html+='<button class="perf-pill pf-all '+(!filt.perf?'active':'')+'" data-perf="">الكل</button>';
-    html+='<button class="perf-pill pf-excellent '+(filt.perf==='التميز'?'active':'')+'" data-perf="التميز"><span class="d"></span>مميز</button>';
-    html+='<button class="perf-pill pf-advanced '+(filt.perf==='التقدم'?'active':'')+'" data-perf="التقدم"><span class="d"></span>متقدم</button>';
+    html+='<button class="perf-pill pf-excellent '+(filt.perf==='التميز'?'active':'')+'" data-perf="التميز"><span class="d"></span>تميز</button>';
+    html+='<button class="perf-pill pf-advanced '+(filt.perf==='التقدم'?'active':'')+'" data-perf="التقدم"><span class="d"></span>تقدم</button>';
     html+='<button class="perf-pill pf-developing '+(filt.perf==='الانطلاق'?'active':'')+'" data-perf="الانطلاق"><span class="d"></span>انطلاق</button>';
     html+='<button class="perf-pill pf-initial '+(filt.perf==='التهيئة'?'active':'')+'" data-perf="التهيئة"><span class="d"></span>تهيئة</button>';
     html+='</div>';
@@ -989,18 +1026,18 @@ function renderModuleView(modId){
   }
 
   if(canEdit()){
-    html+='<div class="panel" style="padding:14px 16px;margin-bottom:16px">';
-    html+='<div class="flexrow"><strong class="small">روابط نماذج (Google Forms) أو مصادر خارجية مرتبطة بهذه الفئة:</strong></div>';
-    html+='<div class="linkbar" style="margin-top:8px">';
+    html+='<div class="panel links-panel">';
+    html+='<div class="links-panel-head"><span class="links-icon">🔗</span><strong>روابط نماذج ومصادر خارجية</strong></div>';
+    html+='<div class="linkbar">';
     links.forEach(function(l){
-      html+='<a class="pill-link" href="'+esc(l.url)+'" target="_blank" rel="noopener">🔗 '+esc(l.title)+'</a>';
+      html+='<a class="pill-link" href="'+esc(l.url)+'" target="_blank" rel="noopener"><span class="pl-dot"></span>'+esc(l.title)+'</a>';
     });
     if(!links.length) html+='<span class="muted small">لا توجد روابط مضافة بعد.</span>';
     html+='</div>';
-    html+='<form id="addLinkForm" class="flexrow" style="margin-top:10px">'+
+    html+='<form id="addLinkForm" class="flexrow" style="margin-top:12px">'+
       '<input name="title" placeholder="عنوان الرابط (مثال: نموذج رصد الغياب)" class="search-box" style="min-width:220px" required>'+
       '<input name="url" placeholder="https://forms.gle/..." class="search-box" style="min-width:220px" required>'+
-      '<button class="btn btn-sm" type="submit">إضافة رابط</button>'+
+      '<button class="btn btn-sm btn-primary" type="submit">+ إضافة</button>'+
     '</form></div>';
   }
 
@@ -1011,7 +1048,8 @@ function renderModuleView(modId){
     html+='<tr class="empty-row"><td colspan="'+(mod.fields.filter(function(f){return f.type!=='textarea';}).length+2)+'">لا توجد سجلات مطابقة — جرّب تعديل الفلاتر أو أضف سجلاً جديداً.</td></tr>';
   }else{
     sorted.forEach(function(r){
-      html+='<tr>';
+      var rowStyle = (modId==='school_performance' && r.currentPerformance) ? ' style="background:'+rowPerfBg(r.currentPerformance)+'"' : '';
+      html+='<tr'+rowStyle+'>';
       mod.fields.forEach(function(f){
         if(f.type==='textarea') return;
         var v=r[f.key];
@@ -1031,11 +1069,14 @@ function renderModuleView(modId){
         }
       });
       html+='<td><span class="small muted">'+esc(r.source||'يدوي')+'</span></td>';
-      html+='<td class="flexrow">';
-      html+='<button class="btn btn-sm" data-view="'+r.id+'">عرض</button>';
-      if(canEdit()) html+='<button class="btn btn-sm" data-edit="'+r.id+'">تعديل</button>';
-      if(canEdit()) html+='<button class="btn btn-sm" data-archive="'+r.id+'">أرشفة</button>';
-      if(isAdmin()) html+='<button class="btn btn-sm btn-danger" data-del="'+r.id+'">حذف</button>';
+      html+='<td class="actions-cell">';
+      html+='<button type="button" class="btn-icon dd-trigger" data-ddtrigger="row_'+r.id+'">⋮</button>';
+      html+='<template id="ddtpl_row_'+r.id+'">';
+      html+='<button type="button" data-view="'+r.id+'">👁 عرض</button>';
+      if(canEdit()) html+='<button type="button" data-edit="'+r.id+'">✎ تعديل</button>';
+      if(canEdit()) html+='<button type="button" data-archive="'+r.id+'">🗄 أرشفة</button>';
+      if(isAdmin()) html+='<button type="button" class="dd-danger" data-del="'+r.id+'">🗑 حذف</button>';
+      html+='</template>';
       html+='</td></tr>';
     });
   }
@@ -1060,9 +1101,6 @@ function bindModuleEvents(modId){
 
   var addBtn=document.getElementById('btnAdd');
   if(addBtn) addBtn.onclick=function(){ openRecordModal(modId, null); };
-
-  var expBtn=document.getElementById('btnExport');
-  if(expBtn) expBtn.onclick=function(){ exportModuleExcel(modId); };
 
   var tmplBtn=document.getElementById('btnTemplate');
   if(tmplBtn) tmplBtn.onclick=function(){ downloadTemplate(modId); };
@@ -1098,11 +1136,6 @@ function bindModuleEvents(modId){
       render();
     }catch(err){ toast('تعذر إضافة الرابط: '+(err&&err.message?err.message:''), true); if(submitBtn) submitBtn.disabled=false; }
   };
-
-  document.querySelectorAll('[data-view]').forEach(function(b){ b.onclick=function(){ openViewModal(modId, b.dataset.view); }; });
-  document.querySelectorAll('[data-edit]').forEach(function(b){ b.onclick=function(){ openRecordModal(modId, b.dataset.edit); }; });
-  document.querySelectorAll('[data-archive]').forEach(function(b){ b.onclick=function(){ archiveRecord(modId, b.dataset.archive, true); }; });
-  document.querySelectorAll('[data-del]').forEach(function(b){ b.onclick=function(){ if(confirm('هل أنت متأكد من حذف هذا السجل نهائياً؟')) deleteRecord(modId, b.dataset.del); }; });
 }
 
 function getStore(modId){ return modId==='schools' ? APP.db.schools : APP.db.records; }
@@ -1250,6 +1283,87 @@ function exportModuleExcel(modId){
   XLSX.utils.book_append_sheet(wb, ws, mod.label.slice(0,28));
   XLSX.writeFile(wb, mod.label+'.xlsx');
   toast('تم تصدير الملف');
+}
+
+function closeFloatingMenu(){
+  var menu=document.getElementById('floatingMenu');
+  if(menu){ menu.style.display='none'; menu.innerHTML=''; delete menu.dataset.openFor; }
+}
+function positionFloatingMenu(trigger, menu){
+  var rect=trigger.getBoundingClientRect();
+  menu.style.minWidth='155px';
+  var left=rect.right-155;
+  if(left<8) left=8;
+  var top=rect.bottom+4;
+  if(top+220>window.innerHeight){ top=rect.top-4; menu.style.transform='translateY(-100%)'; }
+  else{ menu.style.transform='none'; }
+  menu.style.top=top+'px';
+  menu.style.left=left+'px';
+}
+function bindFloatingMenuActions(){
+  var menu=document.getElementById('floatingMenu');
+  if(!menu) return;
+  var modId=APP.view.id;
+  menu.querySelectorAll('[data-view]').forEach(function(b){ b.onclick=function(){ closeFloatingMenu(); openViewModal(modId, b.dataset.view); }; });
+  menu.querySelectorAll('[data-edit]').forEach(function(b){ b.onclick=function(){ closeFloatingMenu(); openRecordModal(modId, b.dataset.edit); }; });
+  menu.querySelectorAll('[data-archive]').forEach(function(b){ b.onclick=function(){ closeFloatingMenu(); archiveRecord(modId, b.dataset.archive, true); }; });
+  menu.querySelectorAll('[data-del]').forEach(function(b){ b.onclick=function(){ closeFloatingMenu(); if(confirm('هل أنت متأكد من حذف هذا السجل نهائياً؟')) deleteRecord(modId, b.dataset.del); }; });
+  var expXlsx=menu.querySelector('#expXlsx'); if(expXlsx) expXlsx.onclick=function(){ closeFloatingMenu(); exportModuleExcel(modId); };
+  var expPdf=menu.querySelector('#expPdf'); if(expPdf) expPdf.onclick=function(){ closeFloatingMenu(); exportModuleTablePdf(modId); };
+  var expImg=menu.querySelector('#expImg'); if(expImg) expImg.onclick=function(){ closeFloatingMenu(); exportModuleTableImage(modId); };
+}
+document.addEventListener('click', function(e){
+  var trigger=e.target.closest('.dd-trigger');
+  var menu=document.getElementById('floatingMenu');
+  if(trigger){
+    e.stopPropagation();
+    var key=trigger.dataset.ddtrigger;
+    if(menu.dataset.openFor===key && menu.style.display!=='none'){ closeFloatingMenu(); return; }
+    var tpl=document.getElementById('ddtpl_'+key);
+    if(!tpl) return;
+    menu.innerHTML='';
+    menu.appendChild(tpl.content.cloneNode(true));
+    menu.dataset.openFor=key;
+    menu.style.display='flex';
+    positionFloatingMenu(trigger, menu);
+    bindFloatingMenuActions();
+    return;
+  }
+  if(menu && menu.style.display!=='none' && !menu.contains(e.target)) closeFloatingMenu();
+});
+window.addEventListener('scroll', closeFloatingMenu, true);
+window.addEventListener('resize', closeFloatingMenu);
+
+function exportModuleTablePdf(modId){
+  var el=document.querySelector('#content .table-wrap');
+  if(!el || !window.html2canvas || !window.jspdf){ toast('تعذر تجهيز أدوات التصدير', true); return; }
+  toast('جارٍ تجهيز ملف PDF...');
+  html2canvas(el, {scale:2, backgroundColor:'#ffffff'}).then(function(canvas){
+    var pdf=new window.jspdf.jsPDF('l','mm','a4');
+    var pageW=297, pageH=210;
+    var imgW=pageW-14;
+    var imgH=canvas.height*imgW/canvas.width;
+    var heightLeft=imgH, position=7;
+    var imgData=canvas.toDataURL('image/png');
+    pdf.addImage(imgData,'PNG',7,position,imgW,imgH);
+    heightLeft-=(pageH-14);
+    while(heightLeft>0){
+      position = heightLeft - imgH + 7;
+      pdf.addPage();
+      pdf.addImage(imgData,'PNG',7,position,imgW,imgH);
+      heightLeft-=(pageH-14);
+    }
+    pdf.save(getModule(modId).label+'.pdf');
+  }).catch(function(){ toast('تعذر إنشاء ملف PDF', true); });
+}
+
+function exportModuleTableImage(modId){
+  var el=document.querySelector('#content .table-wrap');
+  if(!el || !window.html2canvas){ toast('تعذر تجهيز أدوات التصدير', true); return; }
+  toast('جارٍ تجهيز الصورة...');
+  html2canvas(el, {scale:2, backgroundColor:'#ffffff'}).then(function(canvas){
+    canvas.toBlob(function(blob){ download(getModule(modId).label+'.png', blob); });
+  }).catch(function(){ toast('تعذر إنشاء الصورة', true); });
 }
 
 function importModuleExcel(modId, file){
