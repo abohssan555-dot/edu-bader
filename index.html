@@ -396,6 +396,7 @@ var CATEGORIES = [
 
   {id:'discipline', section:'internal', group:'المدارس', label:'الانضباط المدرسي', fields:issueFields()},
   {id:'commitment', section:'internal', group:'المدارس', label:'الالتزام التعليمي', fields:issueFields()},
+  {id:'school_principals', section:'internal', group:'المدارس', label:'مديرو المدارس', fields:personFields([T.date('appointmentDate','تاريخ التكليف')])},
   {id:'teachers', section:'internal', group:'المدارس', label:'المعلمون', fields:personFields([T.text('subject','المادة'),T.text('qualification','المؤهل')])},
   {id:'students', section:'internal', group:'المدارس', label:'الطلاب', fields:issueFields([T.text('grade','الصف الدراسي')])},
   {id:'school_services', section:'internal', group:'المدارس', label:'احتياجات المدارس من الخدمات', fields:issueFields([T.text('serviceType','نوع الاحتياج')])},
@@ -475,7 +476,7 @@ var NAV = [
   ]},
   {type:'section', label:'القضايا الداخلية', children:[
     {type:'group', label:'المشرفون', children:['exec_team','providers','admin_supervisors']},
-    {type:'group', label:'المدارس', children:['discipline','commitment','teachers','students','school_services','transport']},
+    {type:'group', label:'المدارس', children:['school_principals','discipline','commitment','teachers','students','school_services','transport']},
     {type:'link', id:'calendar'},
     {type:'link', id:'tests'},
     {type:'link', id:'development'},
@@ -486,10 +487,12 @@ var NAV = [
     {type:'link', id:'community_partnership'},
     {type:'link', id:'other_shared'}
   ]},
-  {type:'link', id:'links', label:'روابط النماذج والمصادر'},
-  {type:'link', id:'archive', label:'الأرشيف'},
-  {type:'link', id:'reports', label:'التقارير'},
-  {type:'link', id:'users', label:'إدارة المستخدمين', adminOnly:true}
+  {type:'section', label:'أدوات النظام', children:[
+    {type:'link', id:'links', label:'روابط النماذج والمصادر'},
+    {type:'link', id:'archive', label:'الأرشيف'},
+    {type:'link', id:'reports', label:'التقارير'},
+    {type:'link', id:'users', label:'إدارة المستخدمين', adminOnly:true}
+  ]}
 ];
 
 /* ---------------- Storage layer ----------------
@@ -833,7 +836,9 @@ function renderNav(){
           });
           html+='</details>';
         }else{
-          html+='<a href="#" class="nav-link '+(isViewActive(ch.id)?'active':'')+'" data-nav="'+ch.id+'"><span class="dot"></span>'+esc(moduleLabel(ch.id))+'</a>';
+          if(ch.adminOnly && !isAdmin()) return;
+          var chLabel = ch.label || moduleLabel(ch.id);
+          html+='<a href="#" class="nav-link '+(isViewActive(ch.id)?'active':'')+'" data-nav="'+ch.id+'"><span class="dot"></span>'+esc(chLabel)+'</a>';
         }
       });
     }
