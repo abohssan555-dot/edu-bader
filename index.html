@@ -163,8 +163,10 @@ table.data tr:hover td{background:#FAFBF9}
 .perf-pill.pf-initial .d{background:var(--danger)} .perf-pill.pf-initial.active{border-color:var(--danger);background:var(--danger-soft);color:var(--danger)}
 .perf-pill.pf-all.active{border-color:var(--primary);background:var(--primary-soft);color:var(--primary-dark)}
 
-table.data.table-compact th, table.data.table-compact td{padding:4px 9px;font-size:12.2px;max-width:180px}
-table.data.table-compact td{vertical-align:middle}
+table.data.table-compact th, table.data.table-compact td{padding:3px 9px;font-size:12.2px;max-width:170px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+table.data.table-compact tbody tr:nth-child(odd){background:#F4F7F3}
+table.data.table-compact tbody tr:nth-child(even){background:#ECF1EA}
+table.data.table-compact tbody tr:hover td{background:#E4EDE3}
 
 .pill-link{font-size:11.5px;padding:5px 10px;border-radius:20px;background:var(--info-soft);color:var(--info);text-decoration:none;display:inline-flex;gap:5px;align-items:center;border:1px solid transparent}
 .pill-link:hover{border-color:var(--info)}
