@@ -27,6 +27,8 @@
   --info-soft:#E4ECF4;
   --ok:#2F7A4D;
   --ok-soft:#E4F1E7;
+  --orange:#C1690E;
+  --orange-soft:#FBE9D6;
   --border:#E1E4DE;
   --radius:12px;
   --shadow:0 1px 2px rgba(24,38,32,.06), 0 6px 20px rgba(24,38,32,.05);
@@ -147,6 +149,22 @@ table.data tr:hover td{background:#FAFBF9}
 .badge.status-pending{background:var(--accent-soft);color:#8a6d0c}
 .badge.status-approved{background:var(--ok-soft);color:var(--ok)}
 .badge.status-rejected{background:var(--danger-soft);color:var(--danger)}
+.badge.perf-excellent{background:var(--ok-soft);color:var(--ok)} .badge.perf-excellent .d{background:var(--ok)}
+.badge.perf-advanced{background:var(--info-soft);color:var(--info)} .badge.perf-advanced .d{background:var(--info)}
+.badge.perf-developing{background:var(--orange-soft);color:var(--orange)} .badge.perf-developing .d{background:var(--orange)}
+.badge.perf-initial{background:var(--danger-soft);color:var(--danger)} .badge.perf-initial .d{background:var(--danger)}
+.badge.perf-none{background:#ECEDEA;color:var(--muted)} .badge.perf-none .d{background:var(--muted)}
+
+.perf-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;border:1.5px solid transparent;background:#fff;color:var(--muted)}
+.perf-pill .d{width:7px;height:7px;border-radius:50%;display:inline-block}
+.perf-pill.pf-excellent .d{background:var(--ok)} .perf-pill.pf-excellent.active{border-color:var(--ok);background:var(--ok-soft);color:var(--ok)}
+.perf-pill.pf-advanced .d{background:var(--info)} .perf-pill.pf-advanced.active{border-color:var(--info);background:var(--info-soft);color:var(--info)}
+.perf-pill.pf-developing .d{background:var(--orange)} .perf-pill.pf-developing.active{border-color:var(--orange);background:var(--orange-soft);color:var(--orange)}
+.perf-pill.pf-initial .d{background:var(--danger)} .perf-pill.pf-initial.active{border-color:var(--danger);background:var(--danger-soft);color:var(--danger)}
+.perf-pill.pf-all.active{border-color:var(--primary);background:var(--primary-soft);color:var(--primary-dark)}
+
+table.data.table-compact th, table.data.table-compact td{padding:4px 9px;font-size:12.2px;max-width:180px}
+table.data.table-compact td{vertical-align:middle}
 
 .pill-link{font-size:11.5px;padding:5px 10px;border-radius:20px;background:var(--info-soft);color:var(--info);text-decoration:none;display:inline-flex;gap:5px;align-items:center;border:1px solid transparent}
 .pill-link:hover{border-color:var(--info)}
@@ -874,6 +892,16 @@ function recordDisplayTitle(rec, mod){
   return '—';
 }
 
+var moduleFilters={}; // per-module filter state {gender, stage, perf}
+function perfBadgeClass(v){
+  var m={'التميز':'perf-excellent','التقدم':'perf-advanced','الانطلاق':'perf-developing','التهيئة':'perf-initial','لا يوجد':'perf-none'};
+  return m[v]||'perf-none';
+}
+function perfPillClass(v){
+  var m={'التميز':'pf-excellent','التقدم':'pf-advanced','الانطلاق':'pf-developing','التهيئة':'pf-initial'};
+  return m[v]||'';
+}
+
 function renderModuleView(modId){
   var mod=getModule(modId);
   var db=APP.db;
@@ -889,10 +917,43 @@ function renderModuleView(modId){
     });
   }
 
+  var hasGenderField = mod.fields.some(function(f){return f.key==='gender';});
+  var hasStageField = mod.fields.some(function(f){return f.key==='stage';});
+  var hasPerfField = mod.fields.some(function(f){return f.key==='currentPerformance';});
+  var filt = moduleFilters[modId] || {gender:'', stage:'', perf:''};
+  moduleFilters[modId]=filt;
+  if(hasGenderField && filt.gender) records=records.filter(function(r){return r.gender===filt.gender;});
+  if(hasStageField && filt.stage) records=records.filter(function(r){return r.stage===filt.stage;});
+  if(hasPerfField && filt.perf) records=records.filter(function(r){return r.currentPerformance===filt.perf;});
+
+  var isCompact = (modId==='schools' || modId==='school_performance');
+  var sorted=records.slice();
+  if(modId==='schools'){
+    sorted.sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''),'ar');});
+  }else if(modId==='school_performance'){
+    sorted.sort(function(a,b){
+      var an=(db.schools.find(function(s){return s.id===a.schoolId;})||{}).name||'';
+      var bn=(db.schools.find(function(s){return s.id===b.schoolId;})||{}).name||'';
+      return String(an).localeCompare(String(bn),'ar');
+    });
+  }else{
+    sorted.sort(function(a,b){return new Date(b.createdAt||0)-new Date(a.createdAt||0);});
+  }
+
   var links=db.formLinks.filter(function(l){return l.category===modId;});
 
   var html='<div class="toolbar">';
   html+='<input class="search-box" id="modSearch" placeholder="بحث في السجلات..." value="'+esc(moduleSearch[modId]||'')+'">';
+  if(hasGenderField){
+    html+='<select id="filterGender" class="search-box"><option value="">كل الأنواع</option>'+
+      '<option value="بنين" '+(filt.gender==='بنين'?'selected':'')+'>بنين</option>'+
+      '<option value="بنات" '+(filt.gender==='بنات'?'selected':'')+'>بنات</option></select>';
+  }
+  if(hasStageField){
+    html+='<select id="filterStage" class="search-box"><option value="">كل المراحل</option>'+
+      ['ابتدائي','متوسط','ثانوي'].map(function(s){return '<option value="'+s+'" '+(filt.stage===s?'selected':'')+'>'+s+'</option>';}).join('')+
+      '</select>';
+  }
   html+='<span class="grow"></span>';
   if(canEdit()){
     html+='<button class="btn btn-primary" id="btnAdd">+ إضافة سجل</button>';
@@ -906,6 +967,17 @@ function renderModuleView(modId){
   }
   html+='<button class="btn" id="btnExport">تصدير إكسل</button>';
   html+='</div>';
+
+  if(hasPerfField){
+    html+='<div class="toolbar" style="margin-top:-6px">';
+    html+='<span class="small muted">تصفية حسب نتيجة آخر تقويم:</span>';
+    html+='<button class="perf-pill pf-all '+(!filt.perf?'active':'')+'" data-perf="">الكل</button>';
+    html+='<button class="perf-pill pf-excellent '+(filt.perf==='التميز'?'active':'')+'" data-perf="التميز"><span class="d"></span>مميز</button>';
+    html+='<button class="perf-pill pf-advanced '+(filt.perf==='التقدم'?'active':'')+'" data-perf="التقدم"><span class="d"></span>متقدم</button>';
+    html+='<button class="perf-pill pf-developing '+(filt.perf==='الانطلاق'?'active':'')+'" data-perf="الانطلاق"><span class="d"></span>انطلاق</button>';
+    html+='<button class="perf-pill pf-initial '+(filt.perf==='التهيئة'?'active':'')+'" data-perf="التهيئة"><span class="d"></span>تهيئة</button>';
+    html+='</div>';
+  }
 
   if(modId==='school_performance' && canEdit()){
     html+='<div class="panel" style="padding:12px 16px;margin-bottom:16px;border-inline-start:4px solid var(--accent)">'+
@@ -930,13 +1002,13 @@ function renderModuleView(modId){
     '</form></div>';
   }
 
-  html+='<div class="table-wrap"><table class="data"><thead><tr>';
+  html+='<div class="table-wrap"><table class="data'+(isCompact?' table-compact':'')+'"><thead><tr>';
   mod.fields.forEach(function(f){ if(f.type!=='textarea') html+='<th>'+esc(f.label)+'</th>'; });
   html+='<th>مصدر</th><th>إجراءات</th></tr></thead><tbody>';
-  if(!records.length){
-    html+='<tr class="empty-row"><td colspan="'+(mod.fields.filter(function(f){return f.type!=='textarea';}).length+2)+'">لا توجد سجلات بعد — ابدأ بإضافة سجل جديد أو استيراد ملف إكسل.</td></tr>';
+  if(!sorted.length){
+    html+='<tr class="empty-row"><td colspan="'+(mod.fields.filter(function(f){return f.type!=='textarea';}).length+2)+'">لا توجد سجلات مطابقة — جرّب تعديل الفلاتر أو أضف سجلاً جديداً.</td></tr>';
   }else{
-    records.slice().sort(function(a,b){return new Date(b.createdAt||0)-new Date(a.createdAt||0);}).forEach(function(r){
+    sorted.forEach(function(r){
       html+='<tr>';
       mod.fields.forEach(function(f){
         if(f.type==='textarea') return;
@@ -946,6 +1018,8 @@ function renderModuleView(modId){
           html+='<td>'+(s?esc(s.name):'<span class="muted">—</span>')+'</td>';
         }else if(f.key==='status'){
           html+='<td>'+(v?'<span class="badge '+statusBadgeClass(v)+'"><span class="d"></span>'+esc(v)+'</span>':'—')+'</td>';
+        }else if(f.options===PERF_OPTS){
+          html+='<td>'+(v?'<span class="badge '+perfBadgeClass(v)+'"><span class="d"></span>'+esc(v)+'</span>':'—')+'</td>';
         }else if(f.type==='date'){
           html+='<td>'+(v?fmtDate(v):'—')+'</td>';
         }else if(f.type==='url'){
@@ -971,6 +1045,16 @@ function bindModuleEvents(modId){
   var mod=getModule(modId);
   var input=document.getElementById('modSearch');
   if(input) input.oninput=function(){ moduleSearch[modId]=input.value; render(); setTimeout(function(){var i=document.getElementById('modSearch'); if(i){i.focus(); i.setSelectionRange(i.value.length,i.value.length);}},0); };
+
+  var filt = moduleFilters[modId] || {gender:'', stage:'', perf:''};
+  moduleFilters[modId]=filt;
+  var fg=document.getElementById('filterGender');
+  if(fg) fg.onchange=function(){ filt.gender=fg.value; render(); };
+  var fs=document.getElementById('filterStage');
+  if(fs) fs.onchange=function(){ filt.stage=fs.value; render(); };
+  document.querySelectorAll('[data-perf]').forEach(function(b){
+    b.onclick=function(){ filt.perf=b.dataset.perf; render(); };
+  });
 
   var addBtn=document.getElementById('btnAdd');
   if(addBtn) addBtn.onclick=function(){ openRecordModal(modId, null); };
@@ -1247,7 +1331,7 @@ async function importOfficialPerformanceFile(file){
     for(var r=0;r<dataRows.length;r++){
       var row=dataRows[r];
       var name=String(row[1]||'').trim();
-      if(!name) continue;
+      if(!name) break; // نهاية بيانات المدارس الفعلية — ما بعدها جداول إحصائية ملخّصة في نفس الورقة
       var statNumber=String(row[2]||'').trim();
       var stage=String(row[3]||'').trim();
       var gender=String(row[4]||'').trim();
