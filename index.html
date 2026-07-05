@@ -199,6 +199,7 @@ table.data tr:hover td{background:#FAFBF9}
 .perf-pill.pf-advanced .d{background:var(--info)} .perf-pill.pf-advanced.active{border-color:var(--info);background:var(--info-soft);color:var(--info)}
 .perf-pill.pf-developing .d{background:var(--orange)} .perf-pill.pf-developing.active{border-color:var(--orange);background:var(--orange-soft);color:var(--orange)}
 .perf-pill.pf-initial .d{background:var(--danger)} .perf-pill.pf-initial.active{border-color:var(--danger);background:var(--danger-soft);color:var(--danger)}
+.perf-pill.pf-none .d{background:var(--muted)} .perf-pill.pf-none.active{border-color:var(--muted);background:#ECEDEA;color:var(--muted)}
 .perf-pill.pf-all.active{border-color:var(--primary);background:var(--primary-soft);color:var(--primary-dark)}
 
 table.data.table-compact th, table.data.table-compact td{padding:3px 9px;font-size:12.2px;max-width:170px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -968,15 +969,18 @@ function recordDisplayTitle(rec, mod){
 
 var moduleFilters={}; // per-module filter state {gender, stage, perf}
 function perfBadgeClass(v){
-  var m={'التميز':'perf-excellent','التقدم':'perf-advanced','الانطلاق':'perf-developing','التهيئة':'perf-initial','لا يوجد':'perf-none'};
+  if(!v || v==='لا يوجد') return 'perf-none';
+  var m={'التميز':'perf-excellent','التقدم':'perf-advanced','الانطلاق':'perf-developing','التهيئة':'perf-initial'};
   return m[v]||'perf-none';
 }
 function perfPillClass(v){
+  if(!v || v==='لا يوجد') return 'pf-none';
   var m={'التميز':'pf-excellent','التقدم':'pf-advanced','الانطلاق':'pf-developing','التهيئة':'pf-initial'};
   return m[v]||'';
 }
 
 function rowPerfBg(v){
+  if(!v || v==='لا يوجد') return '#ECEDEA';
   var m={'التميز':'var(--perf-excellent)','التقدم':'var(--perf-advanced)','الانطلاق':'var(--perf-developing)','التهيئة':'var(--perf-initial)'};
   return m[v]||'';
 }
@@ -986,10 +990,12 @@ function renderPerfStatsPanel(records){
   var byStage={'ابتدائي':0,'متوسط':0,'ثانوي':0};
   var byGender={'بنين':0,'بنات':0};
   var byPerf={'التميز':0,'التقدم':0,'الانطلاق':0,'التهيئة':0};
+  var noReport=0;
   records.forEach(function(r){
     if(byStage.hasOwnProperty(r.stage)) byStage[r.stage]++;
     if(byGender.hasOwnProperty(r.gender)) byGender[r.gender]++;
     if(byPerf.hasOwnProperty(r.currentPerformance)) byPerf[r.currentPerformance]++;
+    else if(!r.currentPerformance || r.currentPerformance==='لا يوجد') noReport++;
   });
   var html='<div class="stats-compact-bar">';
   html+='<span class="stat-chip stat-chip-main">📚 الإجمالي: <b>'+total+'</b></span>';
@@ -1003,6 +1009,7 @@ function renderPerfStatsPanel(records){
   html+='<span class="perf-pill pf-advanced"><span class="d"></span>تقدم: '+byPerf['التقدم']+'</span>';
   html+='<span class="perf-pill pf-developing"><span class="d"></span>انطلاق: '+byPerf['الانطلاق']+'</span>';
   html+='<span class="perf-pill pf-initial"><span class="d"></span>تهيئة: '+byPerf['التهيئة']+'</span>';
+  html+='<span class="perf-pill pf-none"><span class="d"></span>لا يوجد تقرير: '+noReport+'</span>';
   html+='</div>';
   return html;
 }
@@ -1058,7 +1065,10 @@ function renderModuleView(modId){
   moduleFilters[modId]=filt;
   if(hasGenderField && filt.gender) records=records.filter(function(r){return r.gender===filt.gender;});
   if(hasStageField && filt.stage) records=records.filter(function(r){return r.stage===filt.stage;});
-  if(hasPerfField && filt.perf) records=records.filter(function(r){return r.currentPerformance===filt.perf;});
+  if(hasPerfField && filt.perf){
+    if(filt.perf==='__none__') records=records.filter(function(r){return !r.currentPerformance || r.currentPerformance==='لا يوجد';});
+    else records=records.filter(function(r){return r.currentPerformance===filt.perf;});
+  }
 
   var isCompact = (modId==='schools' || modId==='school_performance');
   var sorted=records.slice();
@@ -1119,6 +1129,7 @@ function renderModuleView(modId){
     html+='<button class="perf-pill pf-advanced '+(filt.perf==='التقدم'?'active':'')+'" data-perf="التقدم"><span class="d"></span>تقدم</button>';
     html+='<button class="perf-pill pf-developing '+(filt.perf==='الانطلاق'?'active':'')+'" data-perf="الانطلاق"><span class="d"></span>انطلاق</button>';
     html+='<button class="perf-pill pf-initial '+(filt.perf==='التهيئة'?'active':'')+'" data-perf="التهيئة"><span class="d"></span>تهيئة</button>';
+    html+='<button class="perf-pill pf-none '+(filt.perf==='__none__'?'active':'')+'" data-perf="__none__"><span class="d"></span>لا يوجد تقرير</button>';
     html+='</div>';
   }
 
@@ -1140,7 +1151,7 @@ function renderModuleView(modId){
     html+='<tr class="empty-row"><td colspan="'+(mod.fields.filter(function(f){return f.type!=='textarea';}).length+2)+'">لا توجد سجلات مطابقة — جرّب تعديل الفلاتر أو أضف سجلاً جديداً.</td></tr>';
   }else{
     sorted.forEach(function(r){
-      var rowStyle = (modId==='school_performance' && r.currentPerformance) ? ' style="background:'+rowPerfBg(r.currentPerformance)+'"' : '';
+      var rowStyle = (modId==='school_performance') ? ' style="background:'+rowPerfBg(r.currentPerformance)+'"' : '';
       html+='<tr'+rowStyle+'>';
       mod.fields.forEach(function(f){
         if(f.type==='textarea') return;
@@ -1151,7 +1162,7 @@ function renderModuleView(modId){
         }else if(f.key==='status'){
           html+='<td>'+(v?'<span class="badge '+statusBadgeClass(v)+'"><span class="d"></span>'+esc(v)+'</span>':'—')+'</td>';
         }else if(f.options===PERF_OPTS){
-          html+='<td>'+(v?'<span class="badge '+perfBadgeClass(v)+'"><span class="d"></span>'+esc(v)+'</span>':'—')+'</td>';
+          html+='<td><span class="badge '+perfBadgeClass(v)+'"><span class="d"></span>'+esc(v||'لا يوجد')+'</span></td>';
         }else if(f.type==='date'){
           html+='<td>'+(v?fmtDate(v):'—')+'</td>';
         }else if(f.type==='url'){
@@ -1519,6 +1530,7 @@ async function importModuleExcel(modId, file, replaceMode){
   var mod=getModule(modId);
   var reader=new FileReader();
   reader.onload=async function(e){
+   try{
     var rows;
     try{
       var data=new Uint8Array(e.target.result);
@@ -1528,6 +1540,7 @@ async function importModuleExcel(modId, file, replaceMode){
     }catch(err){
       toast('تعذرت قراءة الملف، تأكد من صيغة الإكسل', true); return;
     }
+    if(!rows.length){ toast('الملف لا يحتوي على أي صفوف بيانات', true); return; }
 
     var deletedCount=0;
     if(replaceMode){
@@ -1558,6 +1571,14 @@ async function importModuleExcel(modId, file, replaceMode){
       validRecs.push(rec);
     }
 
+    if(!validRecs.length && skipped===rows.length){
+      var expectedLabels=mod.fields.filter(function(f){return f.required;}).map(function(f){return f.label;});
+      var foundHeaders=Object.keys(rows[0]||{});
+      toast('لم يتم استيراد أي صف: أعمدة الملف لا تطابق أعمدة القالب. الحقول المطلوبة: '+expectedLabels.join('، ')+' — أعمدة ملفك: '+foundHeaders.join('، '), true);
+      render();
+      return;
+    }
+
     var added=0, failed=0;
     if(validRecs.length){
       toast('جارٍ حفظ '+validRecs.length+' سجل دفعة واحدة...');
@@ -1579,6 +1600,10 @@ async function importModuleExcel(modId, file, replaceMode){
     if(skipped) msg+=' — تم تجاهل '+skipped+' صف لعدم اكتمال الحقول المطلوبة';
     if(failed) msg+=' — تعذر حفظ '+failed+' صف';
     toast(msg);
+   }catch(fatalErr){
+     toast('حدث خطأ غير متوقع أثناء الاستيراد: '+(fatalErr&&fatalErr.message?fatalErr.message:String(fatalErr)), true);
+     render();
+   }
   };
   reader.readAsArrayBuffer(file);
 }
