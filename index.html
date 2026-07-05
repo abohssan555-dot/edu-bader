@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>منظومة متابعة التعليم — محافظة بدر</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Tajawal:wght@400;500;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -29,6 +29,14 @@
   --ok-soft:#E4F1E7;
   --orange:#C1690E;
   --orange-soft:#FBE9D6;
+  --perf-excellent:#D9F0DE;
+  --perf-excellent-ink:#1D7A3C;
+  --perf-advanced:#D6E7FA;
+  --perf-advanced-ink:#1C5FA8;
+  --perf-developing:#FCE1B3;
+  --perf-developing-ink:#9A5A0A;
+  --perf-initial:#F9D3CE;
+  --perf-initial-ink:#B32E24;
   --border:#E1E4DE;
   --radius:12px;
   --shadow:0 1px 2px rgba(24,38,32,.06), 0 6px 20px rgba(24,38,32,.05);
@@ -38,11 +46,11 @@ html,body{margin:0;padding:0}
 body{
   background:var(--bg);
   color:var(--ink);
-  font-family:'IBM Plex Sans Arabic', Tahoma, Arial, sans-serif;
+  font-family:'Cairo','IBM Plex Sans Arabic', Tahoma, Arial, sans-serif;
   font-size:14.5px;
   line-height:1.6;
 }
-h1,h2,h3,h4,.brand,.nav-label,.stat-num{font-family:'Tajawal', Tahoma, Arial, sans-serif}
+h1,h2,h3,h4,.brand h1,.nav-label,.stat-num{font-family:'Tajawal','Cairo', Tahoma, Arial, sans-serif}
 button{font-family:inherit;cursor:pointer}
 input,select,textarea{font-family:inherit;font-size:14px}
 a{color:var(--primary)}
@@ -125,7 +133,7 @@ details.navgroup[open]>summary:after{transform:rotate(0deg)}
 .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:center}
 .toolbar-filters{margin-bottom:10px}
 .toolbar-actions{margin-bottom:14px}
-.search-box-sm{min-width:150px;max-width:220px;padding:7px 11px;font-size:13px}
+.search-box-sm{min-width:110px;max-width:150px;padding:6px 10px;font-size:12.5px}
 .btn .ic{display:inline-block;font-size:12px;transform:translateY(-1px)}
 
 /* أزرار وقوائم منسدلة صغيرة (⋮ لكل صف، وقائمة التصدير) */
@@ -171,10 +179,10 @@ table.data tr:hover td{background:#FAFBF9}
 .badge.status-pending{background:var(--accent-soft);color:#8a6d0c}
 .badge.status-approved{background:var(--ok-soft);color:var(--ok)}
 .badge.status-rejected{background:var(--danger-soft);color:var(--danger)}
-.badge.perf-excellent{background:var(--ok-soft);color:var(--ok)} .badge.perf-excellent .d{background:var(--ok)}
-.badge.perf-advanced{background:var(--info-soft);color:var(--info)} .badge.perf-advanced .d{background:var(--info)}
-.badge.perf-developing{background:var(--orange-soft);color:var(--orange)} .badge.perf-developing .d{background:var(--orange)}
-.badge.perf-initial{background:var(--danger-soft);color:var(--danger)} .badge.perf-initial .d{background:var(--danger)}
+.badge.perf-excellent{background:var(--perf-excellent);color:var(--perf-excellent-ink)} .badge.perf-excellent .d{background:var(--perf-excellent-ink)}
+.badge.perf-advanced{background:var(--perf-advanced);color:var(--perf-advanced-ink)} .badge.perf-advanced .d{background:var(--perf-advanced-ink)}
+.badge.perf-developing{background:var(--perf-developing);color:var(--perf-developing-ink)} .badge.perf-developing .d{background:var(--perf-developing-ink)}
+.badge.perf-initial{background:var(--perf-initial);color:var(--perf-initial-ink)} .badge.perf-initial .d{background:var(--perf-initial-ink)}
 .badge.perf-none{background:#ECEDEA;color:var(--muted)} .badge.perf-none .d{background:var(--muted)}
 
 .perf-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;border:1.5px solid transparent;background:#fff;color:var(--muted)}
@@ -221,6 +229,8 @@ table.data.table-compact tbody tr:hover td{background:#E4EDE3}
 .login-brand .eyebrow{color:var(--accent);font-weight:700;font-size:12px;letter-spacing:.5px}
 .login-brand h1{font-size:22px;margin:6px 0 4px;font-weight:800;color:#fff}
 .login-brand .sub{font-size:12.5px;color:#BFD8CD}
+.brand-logo{height:56px;width:auto;margin-bottom:10px;object-fit:contain}
+#sidebar .brand .brand-logo{height:40px;margin-bottom:8px}
 .login-card{background:#fff;border-radius:16px;padding:22px 22px 26px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
 .authtabs{display:flex;background:var(--bg);border-radius:10px;padding:4px;margin-bottom:18px}
 .authtabs button{flex:1;padding:8px 4px;border:none;background:transparent;border-radius:8px;font-weight:700;font-size:12.8px;color:var(--muted)}
@@ -632,6 +642,7 @@ function renderLogin(){
   return ''+
   '<div id="loginScreen"><div class="login-wrap">'+
     '<div class="login-brand">'+
+      '<img src="logo.png" alt="شعار وزارة التعليم" class="brand-logo" onerror="this.style.display=\'none\'">'+
       '<div class="eyebrow">إدارة التعليم — محافظة بدر</div>'+
       '<h1>منظومة متابعة التعليم</h1>'+
       '<div class="sub">لوحة متابعة القضايا التعليمية الداخلية والمشتركة</div>'+
@@ -773,7 +784,7 @@ function renderShell(){
   return ''+
   '<div id="app">'+
     '<div id="sidebar" class="'+(APP.sidebarOpen?'open':'')+'">'+
-      '<div class="brand"><div class="eyebrow">إدارة التعليم — محافظة بدر</div><h1>منظومة متابعة التعليم</h1><div class="sub">لوحة القضايا التعليمية</div></div>'+
+      '<div class="brand"><img src="logo.png" alt="شعار وزارة التعليم" class="brand-logo" onerror="this.style.display=\'none\'"><div class="eyebrow">إدارة التعليم — محافظة بدر</div><h1>منظومة متابعة التعليم</h1><div class="sub">لوحة القضايا التعليمية</div></div>'+
       '<nav class="navlist">'+renderNav()+'</nav>'+
       '<div class="userbox"><div class="name">'+esc(APP.currentUser.name)+'</div><div class="role">'+roleLabel(APP.currentUser.role)+'</div><button class="logout" id="logoutBtn">تسجيل الخروج</button></div>'+
     '</div>'+
@@ -926,8 +937,65 @@ function perfPillClass(v){
 }
 
 function rowPerfBg(v){
-  var m={'التميز':'var(--ok-soft)','التقدم':'var(--info-soft)','الانطلاق':'var(--orange-soft)','التهيئة':'var(--danger-soft)'};
+  var m={'التميز':'var(--perf-excellent)','التقدم':'var(--perf-advanced)','الانطلاق':'var(--perf-developing)','التهيئة':'var(--perf-initial)'};
   return m[v]||'';
+}
+
+function renderPerfStatsPanel(records){
+  var total=records.length;
+  var byStage={'ابتدائي':0,'متوسط':0,'ثانوي':0};
+  var byGender={'بنين':0,'بنات':0};
+  var byPerf={'التميز':0,'التقدم':0,'الانطلاق':0,'التهيئة':0};
+  records.forEach(function(r){
+    if(byStage.hasOwnProperty(r.stage)) byStage[r.stage]++;
+    if(byGender.hasOwnProperty(r.gender)) byGender[r.gender]++;
+    if(byPerf.hasOwnProperty(r.currentPerformance)) byPerf[r.currentPerformance]++;
+  });
+  var html='<div class="panel" style="margin-bottom:16px">';
+  html+='<h3><span class="sq"></span>إحصائيات الأداء المدرسي</h3>';
+  html+='<div class="cards-grid" style="margin-bottom:14px">';
+  html+=statCard('إجمالي المدارس المدرجة', total, '');
+  html+=statCard('ابتدائي', byStage['ابتدائي'], 'info');
+  html+=statCard('متوسط', byStage['متوسط'], 'accent');
+  html+=statCard('ثانوي', byStage['ثانوي'], '');
+  html+=statCard('بنين', byGender['بنين'], 'info');
+  html+=statCard('بنات', byGender['بنات'], 'accent');
+  html+='</div>';
+  html+='<div class="flexrow" style="gap:14px;flex-wrap:wrap">';
+  html+='<span class="perf-pill pf-excellent"><span class="d"></span>تميز: '+byPerf['التميز']+'</span>';
+  html+='<span class="perf-pill pf-advanced"><span class="d"></span>تقدم: '+byPerf['التقدم']+'</span>';
+  html+='<span class="perf-pill pf-developing"><span class="d"></span>انطلاق: '+byPerf['الانطلاق']+'</span>';
+  html+='<span class="perf-pill pf-initial"><span class="d"></span>تهيئة: '+byPerf['التهيئة']+'</span>';
+  html+='</div></div>';
+  return html;
+}
+
+function isJunkSchoolName(name){
+  if(!name) return true;
+  var n=String(name).trim();
+  if(!n) return true;
+  if(/^\d+$/.test(n)) return true;
+  var junkWords=['الابتدائية','المتوسطة','الثانوية','إجمالي','المجموع','العدد','الكلي','اجمالي'];
+  return junkWords.indexOf(n)>=0;
+}
+
+async function scanAndCleanJunk(){
+  var junkSchools = APP.db.schools.filter(function(s){ return isJunkSchoolName(s.name); });
+  var junkPerf = APP.db.records.filter(function(r){ return r.category==='school_performance' && !r.schoolId && !r.statNumber; });
+  var total = junkSchools.length + junkPerf.length;
+  if(!total){ toast('لم يتم العثور على سجلات غير صالحة'); return; }
+  var sampleNames = junkSchools.slice(0,5).map(function(s){return s.name;});
+  if(!confirm('تم العثور على '+total+' سجل يبدو غير صالح (مثال: '+(sampleNames.join('، ')||'سجلات أداء بدون مدرسة مرتبطة')+'). هل تريد حذفها نهائياً؟')) return;
+  var okCount=0;
+  for(var i=0;i<junkPerf.length;i++){
+    try{ await dbDelete('school_performance', junkPerf[i].id); okCount++; }catch(e){}
+  }
+  for(var j=0;j<junkSchools.length;j++){
+    try{ await dbDelete('schools', junkSchools[j].id); okCount++; }catch(e){}
+  }
+  await fetchAll();
+  toast('تم حذف '+okCount+' سجل غير صالح');
+  render();
 }
 
 function renderModuleView(modId){
@@ -935,6 +1003,7 @@ function renderModuleView(modId){
   var db=APP.db;
   var records=db.records.filter(function(r){return r.category===modId && !r.archived;});
   if(modId==='schools') records=db.schools.filter(function(r){return !r.archived;});
+  var allRecords=records.slice();
 
   var q=(moduleSearch[modId]||'').trim().toLowerCase();
   if(q){
@@ -972,7 +1041,7 @@ function renderModuleView(modId){
 
   /* صف الفلاتر: بحث + نوع + مرحلة */
   var html='<div class="toolbar toolbar-filters">';
-  html+='<input class="search-box search-box-sm" id="modSearch" placeholder="🔍 بحث..." value="'+esc(moduleSearch[modId]||'')+'">';
+  html+='<input class="search-box search-box-sm" id="modSearch" placeholder="🔍 بحث..." style="max-width:170px" value="'+esc(moduleSearch[modId]||'')+'">';
   if(hasGenderField){
     html+='<select id="filterGender" class="search-box search-box-sm"><option value="">كل الأنواع</option>'+
       '<option value="بنين" '+(filt.gender==='بنين'?'selected':'')+'>بنين</option>'+
@@ -995,9 +1064,9 @@ function renderModuleView(modId){
     if(modId==='school_performance'){
       html+='<button class="btn btn-accent" id="btnOfficialImport"><span class="ic">⟳</span> تحديث من الملف الرسمي</button>';
       html+='<input type="file" id="fileOfficialImport" accept=".xlsx,.xls" style="display:none">';
+      if(isAdmin()) html+='<button class="btn btn-danger" id="btnCleanJunk"><span class="ic">🧹</span> تنظيف سجلات غير صالحة</button>';
     }
   }
-  html+='<span class="grow"></span>';
   html+='<button type="button" class="btn dd-trigger" data-ddtrigger="export"><span class="ic">⇩</span> تصدير <span class="dd-caret">▾</span></button>';
   html+='<template id="ddtpl_export">'+
       '<button type="button" id="expXlsx">📊 إكسل (.xlsx)</button>'+
@@ -1016,6 +1085,10 @@ function renderModuleView(modId){
     html+='<button class="perf-pill pf-developing '+(filt.perf==='الانطلاق'?'active':'')+'" data-perf="الانطلاق"><span class="d"></span>انطلاق</button>';
     html+='<button class="perf-pill pf-initial '+(filt.perf==='التهيئة'?'active':'')+'" data-perf="التهيئة"><span class="d"></span>تهيئة</button>';
     html+='</div>';
+  }
+
+  if(modId==='school_performance'){
+    html+=renderPerfStatsPanel(allRecords);
   }
 
   if(modId==='school_performance' && canEdit()){
@@ -1123,6 +1196,8 @@ function bindModuleEvents(modId){
       offFile.value='';
     };
   }
+  var cleanBtn=document.getElementById('btnCleanJunk');
+  if(cleanBtn) cleanBtn.onclick=function(){ scanAndCleanJunk(); };
   var linkForm=document.getElementById('addLinkForm');
   if(linkForm) linkForm.onsubmit=async function(e){
     e.preventDefault();
