@@ -589,6 +589,35 @@ async function dbDelete(modId, id){
   var res = await sb.from(table).delete().eq('id', id);
   if(res.error) throw res.error;
 }
+async function dbBulkDelete(modId, ids){
+  if(!ids || !ids.length) return;
+  var table = modId==='schools' ? 'schools' : 'records';
+  var chunkSize=200;
+  for(var i=0;i<ids.length;i+=chunkSize){
+    var chunk=ids.slice(i,i+chunkSize);
+    var res=await sb.from(table).delete().in('id', chunk);
+    if(res.error) throw res.error;
+  }
+}
+async function dbBulkInsertRecords(modId, dataArray){
+  if(!dataArray || !dataArray.length) return [];
+  var table = modId==='schools' ? 'schools' : 'records';
+  var rows = dataArray.map(function(d){
+    if(modId==='schools'){
+      var r=schoolToRow(d); r.created_by=APP.currentUser.id; return r;
+    }
+    var r2=recordToRow(modId, d); r2.created_by=APP.currentUser.id; r2.source=d.source||'يدوي'; return r2;
+  });
+  var results=[];
+  var chunkSize=200;
+  for(var i=0;i<rows.length;i+=chunkSize){
+    var chunk=rows.slice(i,i+chunkSize);
+    var res=await sb.from(table).insert(chunk).select();
+    if(res.error) throw res.error;
+    results=results.concat(res.data||[]);
+  }
+  return modId==='schools' ? results.map(rowToSchool) : results.map(rowToRecord);
+}
 
 /* ---------------- App state ---------------- */
 var APP = {
@@ -1502,23 +1531,22 @@ async function importModuleExcel(modId, file, replaceMode){
 
     var deletedCount=0;
     if(replaceMode){
-      toast('جارٍ حذف السجلات الحالية...');
+      toast('جارٍ حذف السجلات الحالية دفعة واحدة...');
       var currentIds = modId==='schools'
         ? APP.db.schools.map(function(r){return r.id;})
         : APP.db.records.filter(function(r){return r.category===modId;}).map(function(r){return r.id;});
-      for(var d=0; d<currentIds.length; d++){
-        try{
-          await dbDelete(modId, currentIds[d]);
-          var store=getStore(modId);
-          var idx=store.findIndex(function(r){return r.id===currentIds[d];});
-          if(idx>=0) store.splice(idx,1);
-          deletedCount++;
-        }catch(errD){}
+      try{
+        await dbBulkDelete(modId, currentIds);
+        deletedCount=currentIds.length;
+        if(modId==='schools') APP.db.schools=[];
+        else APP.db.records=APP.db.records.filter(function(r){return r.category!==modId;});
+      }catch(errD){
+        toast('تعذر حذف بعض السجلات الحالية: '+(errD&&errD.message?errD.message:''), true);
       }
     }
 
-    toast('جارٍ استيراد '+rows.length+' صف...');
-    var added=0, skipped=0, failed=0, schoolsCreated=0;
+    toast('جارٍ تجهيز '+rows.length+' صف...');
+    var validRecs=[], skipped=0, schoolsCreated=0;
     for(var i=0;i<rows.length;i++){
       var rec=mapRowToRecord(mod, rows[i]);
       var beforeCount=APP.db.schools.length;
@@ -1527,11 +1555,22 @@ async function importModuleExcel(modId, file, replaceMode){
       var reqOk = mod.fields.filter(function(f){return f.required;}).every(function(f){return rec[f.key];});
       if(!reqOk){ skipped++; continue; }
       rec.source='استيراد إكسل';
+      validRecs.push(rec);
+    }
+
+    var added=0, failed=0;
+    if(validRecs.length){
+      toast('جارٍ حفظ '+validRecs.length+' سجل دفعة واحدة...');
       try{
-        var created = await dbInsertRecord(modId, rec);
-        getStore(modId).unshift(created);
-        added++;
-      }catch(err2){ failed++; }
+        var created=await dbBulkInsertRecords(modId, validRecs);
+        var store=getStore(modId);
+        for(var c=created.length-1;c>=0;c--) store.unshift(created[c]);
+        added=created.length;
+        failed=validRecs.length-created.length;
+      }catch(errI){
+        failed=validRecs.length;
+        toast('تعذر حفظ السجلات: '+(errI&&errI.message?errI.message:''), true);
+      }
     }
     render();
     var msg = replaceMode ? ('تم حذف '+deletedCount+' سجل سابق، و') : 'تم ';
@@ -1752,7 +1791,7 @@ async function syncLinkNow(link, btn){
     var existingSigs={};
     existing.forEach(function(r){ existingSigs[recordSignature(mod, r)]=true; });
 
-    var added=0, skipped=0, duplicate=0, failed=0;
+    var validRecs=[], skipped=0, duplicate=0;
     for(var i=0;i<rows.length;i++){
       var rec=mapRowToRecord(mod, rows[i]);
       rec=await fillMissingSchoolLinks(mod, rec, rows[i]);
@@ -1761,12 +1800,18 @@ async function syncLinkNow(link, btn){
       var sig=recordSignature(mod, rec);
       if(existingSigs[sig]){ duplicate++; continue; }
       rec.source='مزامنة تلقائية';
+      existingSigs[sig]=true;
+      validRecs.push(rec);
+    }
+    var added=0, failed=0;
+    if(validRecs.length){
       try{
-        var created=await dbInsertRecord(mod.id, rec);
-        getStore(mod.id).unshift(created);
-        existingSigs[sig]=true;
-        added++;
-      }catch(err2){ failed++; }
+        var created=await dbBulkInsertRecords(mod.id, validRecs);
+        var store=getStore(mod.id);
+        for(var c=created.length-1;c>=0;c--) store.unshift(created[c]);
+        added=created.length;
+        failed=validRecs.length-created.length;
+      }catch(errI){ failed=validRecs.length; }
     }
     try{
       await sb.from('form_links').update({last_synced_at:new Date().toISOString()}).eq('id', link.id);
