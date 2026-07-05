@@ -480,6 +480,7 @@ var NAV = [
     {type:'link', id:'community_partnership'},
     {type:'link', id:'other_shared'}
   ]},
+  {type:'link', id:'links', label:'روابط النماذج والمصادر'},
   {type:'link', id:'archive', label:'الأرشيف'},
   {type:'link', id:'reports', label:'التقارير'},
   {type:'link', id:'users', label:'إدارة المستخدمين', adminOnly:true}
@@ -545,7 +546,7 @@ async function fetchAll(){
   var schoolsRes=res[0], recordsRes=res[1], linksRes=res[2];
   APP.db.schools = (schoolsRes.data||[]).map(rowToSchool);
   APP.db.records = (recordsRes.data||[]).map(rowToRecord);
-  APP.db.formLinks = (linksRes.data||[]).map(function(l){ return {id:l.id, category:l.category, title:l.title, url:l.url}; });
+  APP.db.formLinks = (linksRes.data||[]).map(function(l){ return {id:l.id, category:l.category, title:l.title, url:l.url, isSync:!!l.is_sync, lastSyncedAt:l.last_synced_at, createdAt:l.created_at}; });
 }
 async function fetchProfile(userId){
   var res = await sb.from('profiles').select('*').eq('id', userId).single();
@@ -772,7 +773,7 @@ function renderNav(){
 
 function currentTitle(){
   var v=APP.view.id;
-  var map={overview:'نظرة عامة', schools:'قاعدة البيانات الأساسية', archive:'الأرشيف', reports:'التقارير', users:'إدارة المستخدمين'};
+  var map={overview:'نظرة عامة', schools:'قاعدة البيانات الأساسية', links:'روابط النماذج والمصادر', archive:'الأرشيف', reports:'التقارير', users:'إدارة المستخدمين'};
   if(map[v]) return map[v];
   return moduleLabel(v);
 }
@@ -837,6 +838,7 @@ function bindShellEvents(){
 function renderContent(){
   var v=APP.view.id;
   if(v==='overview') return renderOverview();
+  if(v==='links') return renderLinksView();
   if(v==='archive') return renderArchiveView();
   if(v==='reports') return renderReportsView();
   if(v==='users') return isAdmin()? renderUsersView() : '<div class="panel">لا تملك صلاحية الوصول لهذه الصفحة.</div>';
@@ -847,6 +849,7 @@ function renderContent(){
 function bindContentEvents(){
   var v=APP.view.id;
   if(v==='overview') return;
+  if(v==='links') return bindLinksEvents();
   if(v==='archive') return bindArchiveEvents();
   if(v==='reports') return bindReportsEvents();
   if(v==='users') return bindUsersEvents();
@@ -1042,8 +1045,6 @@ function renderModuleView(modId){
     sorted.sort(function(a,b){return new Date(b.createdAt||0)-new Date(a.createdAt||0);});
   }
 
-  var links=db.formLinks.filter(function(l){return l.category===modId;});
-
   /* الصف الأول: أزرار الإجراءات كأيقونات خضراء متناسقة */
   var html='<div class="toolbar toolbar-actions">';
   if(canEdit()){
@@ -1101,22 +1102,6 @@ function renderModuleView(modId){
       '<div class="small muted">زر "تحديث من الملف الرسمي" يقرأ ملف قاعدة بيانات المدارس بصيغته الوزارية الأصلية مباشرة (بدون أي تعديل عليه). '+
       'يتم التعرّف على كل مدرسة عبر <strong>الرقم الإحصائي</strong>: إذا كانت موجودة مسبقاً يتم تحديث بياناتها، وإذا كانت جديدة تُضاف تلقائياً (وتُنشأ المدرسة في قاعدة بيانات المدارس إن لم تكن موجودة). '+
       'استخدمه في كل مرة يصلك فيها ملف محدّث بنفس النموذج.</div></div>';
-  }
-
-  if(canEdit()){
-    html+='<div class="panel links-panel">';
-    html+='<div class="links-panel-head"><span class="links-icon">🔗</span><strong>روابط نماذج ومصادر خارجية</strong></div>';
-    html+='<div class="linkbar">';
-    links.forEach(function(l){
-      html+='<a class="pill-link" href="'+esc(l.url)+'" target="_blank" rel="noopener"><span class="pl-dot"></span>'+esc(l.title)+'</a>';
-    });
-    if(!links.length) html+='<span class="muted small">لا توجد روابط مضافة بعد.</span>';
-    html+='</div>';
-    html+='<form id="addLinkForm" class="flexrow" style="margin-top:12px">'+
-      '<input name="title" placeholder="عنوان الرابط (مثال: نموذج رصد الغياب)" class="search-box" style="min-width:220px" required>'+
-      '<input name="url" placeholder="https://forms.gle/..." class="search-box" style="min-width:220px" required>'+
-      '<button class="btn btn-sm btn-primary" type="submit">+ إضافة</button>'+
-    '</form></div>';
   }
 
   html+='<div class="table-wrap"><table class="data'+(isCompact?' table-compact':'')+'"><thead><tr>';
@@ -1203,19 +1188,6 @@ function bindModuleEvents(modId){
   }
   var cleanBtn=document.getElementById('btnCleanJunk');
   if(cleanBtn) cleanBtn.onclick=function(){ scanAndCleanJunk(); };
-  var linkForm=document.getElementById('addLinkForm');
-  if(linkForm) linkForm.onsubmit=async function(e){
-    e.preventDefault();
-    var fd=new FormData(linkForm);
-    var submitBtn=linkForm.querySelector('button[type="submit"]');
-    if(submitBtn) submitBtn.disabled=true;
-    try{
-      var res=await sb.from('form_links').insert({category:modId, title:fd.get('title'), url:fd.get('url'), created_by:APP.currentUser.id}).select().single();
-      if(res.error) throw res.error;
-      APP.db.formLinks.push({id:res.data.id, category:modId, title:res.data.title, url:res.data.url});
-      render();
-    }catch(err){ toast('تعذر إضافة الرابط: '+(err&&err.message?err.message:''), true); if(submitBtn) submitBtn.disabled=false; }
-  };
 }
 
 function getStore(modId){ return modId==='schools' ? APP.db.schools : APP.db.records; }
@@ -1446,7 +1418,26 @@ function exportModuleTableImage(modId){
   }).catch(function(){ toast('تعذر إنشاء الصورة', true); });
 }
 
-function importModuleExcel(modId, file){
+function mapRowToRecord(mod, row){
+  var rec={};
+  mod.fields.forEach(function(f){
+    var val='';
+    Object.keys(row).forEach(function(k){
+      if(k.trim()===f.label.trim()) val=row[k];
+    });
+    if(f.type==='school' && val){
+      var s=APP.db.schools.find(function(x){return x.name===String(val).trim();});
+      val = s? s.id : '';
+    }
+    rec[f.key]=val;
+  });
+  return rec;
+}
+function recordSignature(mod, rec){
+  return mod.fields.map(function(f){ return String(rec[f.key]!==undefined?rec[f.key]:''); }).join('|');
+}
+
+async function importModuleExcel(modId, file){
   var mod=getModule(modId);
   var reader=new FileReader();
   reader.onload=async function(e){
@@ -1462,19 +1453,7 @@ function importModuleExcel(modId, file){
     toast('جارٍ استيراد '+rows.length+' صف...');
     var added=0, skipped=0, failed=0;
     for(var i=0;i<rows.length;i++){
-      var row=rows[i];
-      var rec={};
-      mod.fields.forEach(function(f){
-        var val='';
-        Object.keys(row).forEach(function(k){
-          if(k.trim()===f.label.trim()) val=row[k];
-        });
-        if(f.type==='school' && val){
-          var s=APP.db.schools.find(function(x){return x.name===String(val).trim();});
-          val = s? s.id : '';
-        }
-        rec[f.key]=val;
-      });
+      var rec=mapRowToRecord(mod, rows[i]);
       var reqOk = mod.fields.filter(function(f){return f.required;}).every(function(f){return rec[f.key];});
       if(!reqOk){ skipped++; continue; }
       rec.source='استيراد إكسل';
@@ -1595,6 +1574,141 @@ async function importOfficialPerformanceFile(file){
     toast(msg);
   };
   reader.readAsArrayBuffer(file);
+}
+
+/* ================= روابط النماذج والمصادر (تبويب موحّد) ================= */
+var linksFilterCat='';
+function renderLinksView(){
+  var db=APP.db;
+  var links=db.formLinks.slice();
+  if(linksFilterCat) links=links.filter(function(l){return l.category===linksFilterCat;});
+
+  var html='<div class="panel">';
+  html+='<div class="small muted" style="margin-bottom:14px">مكان مركزي لحفظ روابط نماذج جوجل أو أي مصادر خارجية. الرابط العادي للتصفح فقط. إذا فعّلت خيار "رابط مزامنة تلقائية" وأدخلت رابط <strong>CSV منشور من Google Sheets</strong> (وليس رابط النموذج نفسه)، يمكنك سحب بياناته مباشرة إلى الفئة المحددة بضغطة زر.</div>';
+
+  if(canEdit()){
+    html+='<form id="addLinkForm" class="toolbar" style="margin-bottom:8px">'+
+      '<select name="category" class="search-box search-box-sm" required><option value="">اختر الفئة</option>'+
+        ALL_MODULES.map(function(m){return '<option value="'+m.id+'">'+esc(m.label)+'</option>';}).join('')+
+      '</select>'+
+      '<input name="title" placeholder="عنوان الرابط" class="search-box" style="min-width:180px" required>'+
+      '<input name="url" placeholder="https://..." class="search-box" style="min-width:220px" required>'+
+      '<button class="btn btn-primary btn-sm" type="submit">+ إضافة رابط</button>'+
+    '</form>';
+    html+='<label class="checkline small muted" style="margin-bottom:16px"><input type="checkbox" id="isSyncChk" form="addLinkForm"> هذا رابط مزامنة تلقائية (CSV منشور من Google Sheets) — سيُسحب من خلاله بيانات فعلية إلى الفئة المختارة</label>';
+  }
+
+  html+='<div class="toolbar" style="margin-bottom:12px"><label class="small muted">تصفية حسب الفئة:</label>'+
+    '<select id="linksFilterSel" class="search-box search-box-sm"><option value="">كل الفئات</option>'+
+    ALL_MODULES.map(function(m){return '<option value="'+m.id+'" '+(linksFilterCat===m.id?'selected':'')+'>'+esc(m.label)+'</option>';}).join('')+
+    '</select></div>';
+
+  html+='<div class="table-wrap"><table class="data"><thead><tr><th>الفئة</th><th>عنوان الرابط</th><th>الرابط</th><th>النوع</th><th>آخر مزامنة</th><th>إجراءات</th></tr></thead><tbody>';
+  if(!links.length){
+    html+='<tr class="empty-row"><td colspan="6">لا توجد روابط مضافة بعد.</td></tr>';
+  }else{
+    links.slice().sort(function(a,b){return new Date(b.createdAt||0)-new Date(a.createdAt||0);}).forEach(function(l){
+      html+='<tr><td>'+esc(moduleLabel(l.category))+'</td><td>'+esc(l.title)+'</td>'+
+        '<td><a class="pill-link" href="'+esc(l.url)+'" target="_blank" rel="noopener"><span class="pl-dot"></span>فتح</a></td>'+
+        '<td>'+(l.isSync?'<span class="badge role-editor">مزامنة تلقائية</span>':'<span class="badge role-viewer">تصفح فقط</span>')+'</td>'+
+        '<td class="small muted">'+(l.lastSyncedAt?fmtDate(l.lastSyncedAt):'—')+'</td>'+
+        '<td class="flexrow">'+
+          (l.isSync && canEdit() ? '<button class="btn btn-sm btn-accent" data-synclink="'+l.id+'">⟳ مزامنة الآن</button>' : '')+
+          (isAdmin()?('<button class="btn btn-sm btn-danger" data-dellink="'+l.id+'">🗑 حذف</button>'):'')+
+        '</td></tr>';
+    });
+  }
+  html+='</tbody></table></div></div>';
+  return html;
+}
+function bindLinksEvents(){
+  var sel=document.getElementById('linksFilterSel');
+  if(sel) sel.onchange=function(){ linksFilterCat=sel.value; render(); };
+
+  var linkForm=document.getElementById('addLinkForm');
+  if(linkForm) linkForm.onsubmit=async function(e){
+    e.preventDefault();
+    var fd=new FormData(linkForm);
+    var cat=fd.get('category');
+    var isSync = document.getElementById('isSyncChk') ? document.getElementById('isSyncChk').checked : false;
+    var submitBtn=linkForm.querySelector('button[type="submit"]');
+    if(submitBtn) submitBtn.disabled=true;
+    try{
+      var res=await sb.from('form_links').insert({category:cat, title:fd.get('title'), url:fd.get('url'), is_sync:isSync, created_by:APP.currentUser.id}).select().single();
+      if(res.error) throw res.error;
+      APP.db.formLinks.push({id:res.data.id, category:cat, title:res.data.title, url:res.data.url, isSync:!!res.data.is_sync, lastSyncedAt:res.data.last_synced_at, createdAt:res.data.created_at});
+      toast('تمت إضافة الرابط');
+      render();
+    }catch(err){ toast('تعذر إضافة الرابط: '+(err&&err.message?err.message:''), true); if(submitBtn) submitBtn.disabled=false; }
+  };
+
+  document.querySelectorAll('[data-dellink]').forEach(function(b){
+    b.onclick=async function(){
+      if(!confirm('حذف هذا الرابط نهائياً؟')) return;
+      try{
+        var res=await sb.from('form_links').delete().eq('id', b.dataset.dellink);
+        if(res.error) throw res.error;
+        var idx=APP.db.formLinks.findIndex(function(l){return l.id===b.dataset.dellink;});
+        if(idx>=0) APP.db.formLinks.splice(idx,1);
+        toast('تم حذف الرابط');
+        render();
+      }catch(err){ toast('تعذر حذف الرابط: '+(err&&err.message?err.message:''), true); }
+    };
+  });
+
+  document.querySelectorAll('[data-synclink]').forEach(function(b){
+    b.onclick=function(){
+      var link=APP.db.formLinks.find(function(l){return l.id===b.dataset.synclink;});
+      if(link) syncLinkNow(link, b);
+    };
+  });
+}
+
+async function syncLinkNow(link, btn){
+  var mod=getModule(link.category);
+  if(!mod){ toast('فئة غير معروفة لهذا الرابط', true); return; }
+  if(btn){ btn.disabled=true; btn.textContent='جارٍ المزامنة...'; }
+  try{
+    var res=await fetch(link.url);
+    if(!res.ok) throw new Error('تعذر الاتصال بالرابط (رمز '+res.status+')');
+    var csvText=await res.text();
+    var wb=XLSX.read(csvText, {type:'string'});
+    var ws=wb.Sheets[wb.SheetNames[0]];
+    var rows=XLSX.utils.sheet_to_json(ws, {defval:''});
+
+    var existing = mod.id==='schools' ? APP.db.schools : APP.db.records.filter(function(r){return r.category===mod.id;});
+    var existingSigs={};
+    existing.forEach(function(r){ existingSigs[recordSignature(mod, r)]=true; });
+
+    var added=0, skipped=0, duplicate=0, failed=0;
+    for(var i=0;i<rows.length;i++){
+      var rec=mapRowToRecord(mod, rows[i]);
+      var reqOk = mod.fields.filter(function(f){return f.required;}).every(function(f){return rec[f.key];});
+      if(!reqOk){ skipped++; continue; }
+      var sig=recordSignature(mod, rec);
+      if(existingSigs[sig]){ duplicate++; continue; }
+      rec.source='مزامنة تلقائية';
+      try{
+        var created=await dbInsertRecord(mod.id, rec);
+        getStore(mod.id).unshift(created);
+        existingSigs[sig]=true;
+        added++;
+      }catch(err2){ failed++; }
+    }
+    try{
+      await sb.from('form_links').update({last_synced_at:new Date().toISOString()}).eq('id', link.id);
+      link.lastSyncedAt=new Date().toISOString();
+    }catch(e3){}
+    render();
+    var msg='تمت المزامنة: '+added+' سجل جديد';
+    if(duplicate) msg+='، '+duplicate+' سجل مكرر تم تجاهله';
+    if(skipped) msg+='، '+skipped+' صف غير مكتمل تم تجاهله';
+    if(failed) msg+='، تعذر حفظ '+failed+' صف';
+    toast(msg);
+  }catch(err){
+    toast('تعذرت المزامنة: '+(err&&err.message?err.message:'تأكد أن الرابط CSV عام ومنشور بشكل صحيح'), true);
+    render();
+  }
 }
 
 var archiveFilter='';
