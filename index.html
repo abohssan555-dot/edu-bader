@@ -135,6 +135,14 @@ details.navgroup[open]>summary:after{transform:rotate(0deg)}
 .toolbar-actions{margin-bottom:14px}
 .search-box-sm{min-width:110px;max-width:150px;padding:6px 10px;font-size:12.5px}
 .btn .ic{display:inline-block;font-size:12px;transform:translateY(-1px)}
+.btn-icon-action{width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;border-radius:9px;background:var(--ok);color:#fff;border:none;font-size:16px;cursor:pointer;box-shadow:0 2px 6px rgba(47,122,77,.3);transition:.12s}
+.btn-icon-action:hover{background:#256B41;transform:translateY(-1px);box-shadow:0 4px 10px rgba(47,122,77,.4)}
+.stats-compact-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:14px}
+.stat-chip{font-size:12px;padding:4px 10px;background:var(--bg);border-radius:7px;border:1px solid var(--border);color:var(--muted);white-space:nowrap}
+.stat-chip b{color:var(--ink);font-weight:800}
+.stat-chip-main{background:var(--primary-soft);color:var(--primary-dark);border-color:var(--primary-soft)}
+.stat-chip-main b{color:var(--primary-dark)}
+.stat-sep{width:1px;height:18px;background:var(--border);margin:0 2px}
 
 /* أزرار وقوائم منسدلة صغيرة (⋮ لكل صف، وقائمة التصدير) */
 .dd-caret{font-size:10px;margin-inline-start:2px}
@@ -951,22 +959,19 @@ function renderPerfStatsPanel(records){
     if(byGender.hasOwnProperty(r.gender)) byGender[r.gender]++;
     if(byPerf.hasOwnProperty(r.currentPerformance)) byPerf[r.currentPerformance]++;
   });
-  var html='<div class="panel" style="margin-bottom:16px">';
-  html+='<h3><span class="sq"></span>إحصائيات الأداء المدرسي</h3>';
-  html+='<div class="cards-grid" style="margin-bottom:14px">';
-  html+=statCard('إجمالي المدارس المدرجة', total, '');
-  html+=statCard('ابتدائي', byStage['ابتدائي'], 'info');
-  html+=statCard('متوسط', byStage['متوسط'], 'accent');
-  html+=statCard('ثانوي', byStage['ثانوي'], '');
-  html+=statCard('بنين', byGender['بنين'], 'info');
-  html+=statCard('بنات', byGender['بنات'], 'accent');
-  html+='</div>';
-  html+='<div class="flexrow" style="gap:14px;flex-wrap:wrap">';
+  var html='<div class="stats-compact-bar">';
+  html+='<span class="stat-chip stat-chip-main">📚 الإجمالي: <b>'+total+'</b></span>';
+  html+='<span class="stat-chip">ابتدائي: <b>'+byStage['ابتدائي']+'</b></span>';
+  html+='<span class="stat-chip">متوسط: <b>'+byStage['متوسط']+'</b></span>';
+  html+='<span class="stat-chip">ثانوي: <b>'+byStage['ثانوي']+'</b></span>';
+  html+='<span class="stat-chip">بنين: <b>'+byGender['بنين']+'</b></span>';
+  html+='<span class="stat-chip">بنات: <b>'+byGender['بنات']+'</b></span>';
+  html+='<span class="stat-sep"></span>';
   html+='<span class="perf-pill pf-excellent"><span class="d"></span>تميز: '+byPerf['التميز']+'</span>';
   html+='<span class="perf-pill pf-advanced"><span class="d"></span>تقدم: '+byPerf['التقدم']+'</span>';
   html+='<span class="perf-pill pf-developing"><span class="d"></span>انطلاق: '+byPerf['الانطلاق']+'</span>';
   html+='<span class="perf-pill pf-initial"><span class="d"></span>تهيئة: '+byPerf['التهيئة']+'</span>';
-  html+='</div></div>';
+  html+='</div>';
   return html;
 }
 
@@ -1039,35 +1044,20 @@ function renderModuleView(modId){
 
   var links=db.formLinks.filter(function(l){return l.category===modId;});
 
-  /* صف الفلاتر: بحث + نوع + مرحلة */
-  var html='<div class="toolbar toolbar-filters">';
-  html+='<input class="search-box search-box-sm" id="modSearch" placeholder="🔍 بحث..." style="max-width:170px" value="'+esc(moduleSearch[modId]||'')+'">';
-  if(hasGenderField){
-    html+='<select id="filterGender" class="search-box search-box-sm"><option value="">كل الأنواع</option>'+
-      '<option value="بنين" '+(filt.gender==='بنين'?'selected':'')+'>بنين</option>'+
-      '<option value="بنات" '+(filt.gender==='بنات'?'selected':'')+'>بنات</option></select>';
-  }
-  if(hasStageField){
-    html+='<select id="filterStage" class="search-box search-box-sm"><option value="">كل المراحل</option>'+
-      ['ابتدائي','متوسط','ثانوي'].map(function(s){return '<option value="'+s+'" '+(filt.stage===s?'selected':'')+'>'+s+'</option>';}).join('')+
-      '</select>';
-  }
-  html+='</div>';
-
-  /* صف الإجراءات العامة: إضافة/استيراد/قالب/تحديث رسمي/تصدير */
-  html+='<div class="toolbar toolbar-actions">';
+  /* الصف الأول: أزرار الإجراءات كأيقونات خضراء متناسقة */
+  var html='<div class="toolbar toolbar-actions">';
   if(canEdit()){
-    html+='<button class="btn btn-primary" id="btnAdd"><span class="ic">＋</span> إضافة سجل</button>';
-    html+='<button class="btn" id="btnImport"><span class="ic">⇪</span> استيراد إكسل</button>';
+    html+='<button class="btn-icon-action" id="btnAdd" title="إضافة سجل">＋</button>';
+    html+='<button class="btn-icon-action" id="btnImport" title="استيراد إكسل">⇪</button>';
     html+='<input type="file" id="fileImport" accept=".xlsx,.xls,.csv" style="display:none">';
-    html+='<button class="btn" id="btnTemplate"><span class="ic">⬇</span> تنزيل قالب</button>';
+    html+='<button class="btn-icon-action" id="btnTemplate" title="تنزيل قالب">⬇</button>';
     if(modId==='school_performance'){
-      html+='<button class="btn btn-accent" id="btnOfficialImport"><span class="ic">⟳</span> تحديث من الملف الرسمي</button>';
+      html+='<button class="btn-icon-action" id="btnOfficialImport" title="تحديث من الملف الرسمي (وزاري)">⟳</button>';
       html+='<input type="file" id="fileOfficialImport" accept=".xlsx,.xls" style="display:none">';
-      if(isAdmin()) html+='<button class="btn btn-danger" id="btnCleanJunk"><span class="ic">🧹</span> تنظيف سجلات غير صالحة</button>';
+      if(isAdmin()) html+='<button class="btn-icon-action" id="btnCleanJunk" title="تنظيف سجلات غير صالحة">🧹</button>';
     }
   }
-  html+='<button type="button" class="btn dd-trigger" data-ddtrigger="export"><span class="ic">⇩</span> تصدير <span class="dd-caret">▾</span></button>';
+  html+='<button type="button" class="btn-icon-action dd-trigger" data-ddtrigger="export" title="تصدير">⇩</button>';
   html+='<template id="ddtpl_export">'+
       '<button type="button" id="expXlsx">📊 إكسل (.xlsx)</button>'+
       '<button type="button" id="expPdf">📄 PDF</button>'+
@@ -1075,7 +1065,22 @@ function renderModuleView(modId){
     '</template>';
   html+='</div>';
 
-  /* صف فلترة الأداء */
+  /* الصف الثاني: فلاتر البحث والنوع والمرحلة بحجم متناسق */
+  html+='<div class="toolbar toolbar-filters">';
+  html+='<input class="search-box search-box-sm" id="modSearch" placeholder="🔍 بحث..." value="'+esc(moduleSearch[modId]||'')+'">';
+  if(hasGenderField){
+    html+='<select id="filterGender" class="search-box search-box-sm"><option value="">👥 كل الأنواع</option>'+
+      '<option value="بنين" '+(filt.gender==='بنين'?'selected':'')+'>بنين</option>'+
+      '<option value="بنات" '+(filt.gender==='بنات'?'selected':'')+'>بنات</option></select>';
+  }
+  if(hasStageField){
+    html+='<select id="filterStage" class="search-box search-box-sm"><option value="">🎓 كل المراحل</option>'+
+      ['ابتدائي','متوسط','ثانوي'].map(function(s){return '<option value="'+s+'" '+(filt.stage===s?'selected':'')+'>'+s+'</option>';}).join('')+
+      '</select>';
+  }
+  html+='</div>';
+
+  /* الصف الثالث: فلترة الأداء (كما هي) */
   if(hasPerfField){
     html+='<div class="toolbar" style="margin-top:-4px">';
     html+='<span class="small muted">تصفية حسب نتيجة آخر تقويم:</span>';
@@ -1088,7 +1093,7 @@ function renderModuleView(modId){
   }
 
   if(modId==='school_performance'){
-    html+=renderPerfStatsPanel(allRecords);
+    html+=renderPerfStatsPanel(records);
   }
 
   if(modId==='school_performance' && canEdit()){
