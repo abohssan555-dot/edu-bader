@@ -158,6 +158,10 @@ details.navgroup[open]>summary:after{transform:rotate(0deg)}
 .kpi-target-form .field{margin-bottom:0;min-width:130px}
 .kpi-compare-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:10px}
 .kpi-compare-title{font-size:13px;font-weight:700;margin-bottom:8px;color:var(--primary-dark)}
+.report-mode-tabs{display:flex;gap:12px;flex-wrap:wrap}
+.report-mode-tab{flex:1;min-width:220px;text-align:right;padding:16px 18px;border-radius:12px;border:2px solid var(--border);background:var(--surface);font-family:'Tajawal',sans-serif;font-size:15px;font-weight:800;color:var(--ink);cursor:pointer;transition:.15s}
+.report-mode-tab:hover{border-color:var(--primary)}
+.report-mode-tab.active{border-color:var(--primary);background:var(--primary-soft);color:var(--primary-dark)}
 .sticky-hscroll{position:fixed;bottom:0;height:14px;overflow-x:auto;overflow-y:hidden;z-index:45;background:var(--bg);border-top:1px solid var(--border)}
 .sticky-hscroll::-webkit-scrollbar{height:12px}
 #stickyHScrollInner{height:1px}
@@ -2149,9 +2153,27 @@ var reportSelection={};
 ALL_MODULES.forEach(function(m){ reportSelection[m.id]=true; });
 var reportIncludeArchived=false;
 
+var reportMode='raw';
 function renderReportsView(){
-  var html='<div class="panel">';
+  var html='<div class="panel" style="padding:14px 16px">';
+  html+='<div class="small muted" style="margin-bottom:10px">اختر نوع التقرير:</div>';
+  html+='<div class="report-mode-tabs">';
+  html+='<button class="report-mode-tab '+(reportMode==='raw'?'active':'')+'" id="modeRawBtn">📋 تقرير بيانات خام<div class="small" style="font-weight:400;opacity:.85">كل السجلات كما هي</div></button>';
+  html+='<button class="report-mode-tab '+(reportMode==='analytical'?'active':'')+'" id="modeAnalyticalBtn">📊 تقرير تحليلي<div class="small" style="font-weight:400;opacity:.85">نسب ومقارنات واستنتاجات</div></button>';
+  html+='</div></div>';
+
+  if(reportMode==='analytical'){
+    html+=renderAnalyticalReportSetup();
+    if(APP.analyticalReport) html+=renderAnalyticalReportPreview();
+    return html;
+  }
+
+  html+='<div class="panel">';
   html+='<h3><span class="sq"></span>إعداد التقرير</h3>';
+  html+='<div class="flexrow" style="margin-bottom:8px">'+
+    '<button type="button" class="btn btn-sm" id="repSelectAll">✔ تحديد الكل</button>'+
+    '<button type="button" class="btn btn-sm" id="repSelectNone">✕ إلغاء تحديد الكل</button>'+
+  '</div>';
   html+='<div class="checklist">';
   ALL_MODULES.forEach(function(m){
     html+='<label class="checkline"><input type="checkbox" data-repchk="'+m.id+'" '+(reportSelection[m.id]?'checked':'')+'> '+esc(m.label)+'</label>';
@@ -2194,9 +2216,20 @@ function renderReportsView(){
 }
 
 function bindReportsEvents(){
+  var modeRaw=document.getElementById('modeRawBtn');
+  if(modeRaw) modeRaw.onclick=function(){ reportMode='raw'; render(); };
+  var modeAn=document.getElementById('modeAnalyticalBtn');
+  if(modeAn) modeAn.onclick=function(){ reportMode='analytical'; render(); };
+
+  if(reportMode==='analytical'){ bindAnalyticalReportEvents(); return; }
+
   document.querySelectorAll('[data-repchk]').forEach(function(cb){
     cb.onchange=function(){ reportSelection[cb.dataset.repchk]=cb.checked; };
   });
+  var selAllBtn=document.getElementById('repSelectAll');
+  if(selAllBtn) selAllBtn.onclick=function(){ ALL_MODULES.forEach(function(m){ reportSelection[m.id]=true; }); render(); };
+  var selNoneBtn=document.getElementById('repSelectNone');
+  if(selNoneBtn) selNoneBtn.onclick=function(){ ALL_MODULES.forEach(function(m){ reportSelection[m.id]=false; }); render(); };
   var ar=document.getElementById('repArchived');
   if(ar) ar.onchange=function(){ reportIncludeArchived=ar.checked; };
   var genBtn=document.getElementById('btnGenReport');
@@ -2206,6 +2239,223 @@ function bindReportsEvents(){
   var e2=document.getElementById('btnExpWord'); if(e2) e2.onclick=exportReportWord;
   var e3=document.getElementById('btnExpPdf'); if(e3) e3.onclick=exportReportPdf;
   var e4=document.getElementById('btnExpInfo'); if(e4) e4.onclick=exportReportInfographic;
+}
+
+/* ================= التقرير التحليلي (قابل للتوسّع لأي مؤشر قادم) ================= */
+var analyticalSelection={};
+function computeExcellenceReportModule(){
+  var k=computeExcellenceKpi();
+  var s=APP.kpiSettings||KPI_DEFAULTS;
+  var promising=computePromisingSchools();
+  var insights=[];
+  if(k.total===0){
+    insights.push('لا توجد بيانات أداء مدرسي مُدخلة بعد لحساب هذا المؤشر.');
+  }else{
+    insights.push('نسبة المدارس المتميزة حالياً '+k.pct.toFixed(1)+'%، مقابل مستهدف مرحلي '+(s.interim_pct!=null?s.interim_pct:KPI_DEFAULTS.interim_pct)+'% ومستهدف وزاري استراتيجي '+(s.strategic_pct!=null?s.strategic_pct:KPI_DEFAULTS.strategic_pct)+'% بحلول '+(s.strategic_date||KPI_DEFAULTS.strategic_date)+'.');
+    if(k.byGender['بنين'].excellent===0 && k.byGender['بنات'].excellent>0){
+      insights.push('تتركز جميع المدارس المتميزة حالياً ('+k.byGender['بنات'].excellent+' مدرسة) في مدارس البنات، بينما لا توجد أي مدرسة بنين ضمن هذه الفئة رغم وجود '+k.byGender['بنين'].total+' مدرسة بنين ضمن المدارس المقيَّمة.');
+    }
+    var stages=['ابتدائي','متوسط','ثانوي'];
+    var stagePcts=stages.map(function(st){ var o=k.byStage[st]; return {stage:st, pct:o.total?(o.excellent/o.total*100):0, total:o.total}; }).filter(function(x){return x.total>0;});
+    if(stagePcts.length){
+      stagePcts.sort(function(a,b){return b.pct-a.pct;});
+      insights.push('أعلى نسبة تميز حسب المرحلة في '+stagePcts[0].stage+' ('+stagePcts[0].pct.toFixed(1)+'%)'+(stagePcts.length>1?('، وأقلها في '+stagePcts[stagePcts.length-1].stage+' ('+stagePcts[stagePcts.length-1].pct.toFixed(1)+'%).'):'.'));
+    }
+    if(promising.length){
+      insights.push('توجد '+promising.length+' مدرسة "واعدة بالتميز" (85%–89%) يمكن أن ترفع النسبة العامة إذا حظيت بدعم مركّز.');
+    }
+  }
+  return {
+    key:'excellence_ratio',
+    title:'نسبة المدارس المتميزة',
+    bigStat:{label:'النسبة الحالية', value:k.pct.toFixed(1)+'%'},
+    subStat:k.excellent+' من أصل '+k.total+' مدرسة مقيَّمة',
+    targetInfo:s,
+    comparisonGroups:[
+      {title:'حسب النوع', rows:[
+        {label:'بنين', total:k.byGender['بنين'].total, count:k.byGender['بنين'].excellent, pct:k.byGender['بنين'].total?(k.byGender['بنين'].excellent/k.byGender['بنين'].total*100):0},
+        {label:'بنات', total:k.byGender['بنات'].total, count:k.byGender['بنات'].excellent, pct:k.byGender['بنات'].total?(k.byGender['بنات'].excellent/k.byGender['بنات'].total*100):0}
+      ]},
+      {title:'حسب المرحلة', rows:['ابتدائي','متوسط','ثانوي'].map(function(st){
+        var o=k.byStage[st]; return {label:st, total:o.total, count:o.excellent, pct:o.total?(o.excellent/o.total*100):0};
+      })}
+    ],
+    insights:insights,
+    extraTable: promising.length ? {
+      title:'مدارس واعدة بالتميز (85%–89%)',
+      headers:['المدرسة','المرحلة','النوع','نسبة الأداء العام الحالي','نسبة نواتج التعلم'],
+      rows: promising.map(function(p){ return [p.schoolName, p.stage||'', p.gender||'', p.currentPerformancePct?p.currentPerformancePct+'%':'', p.learningOutcomesPct?p.learningOutcomesPct+'%':'']; })
+    } : null
+  };
+}
+/* سجّل هنا أي مؤشر تنفيذي جديد لاحقاً — يظهر تلقائياً في قائمة التقرير التحليلي */
+var KPI_REPORT_MODULES=[
+  {key:'excellence_ratio', label:'نسبة المدارس المتميزة', compute:computeExcellenceReportModule}
+];
+
+function renderAnalyticalReportSetup(){
+  var html='<div class="panel">';
+  html+='<h3><span class="sq"></span>اختر المؤشرات المطلوبة</h3>';
+  html+='<div class="flexrow" style="margin-bottom:8px">'+
+    '<button type="button" class="btn btn-sm" id="ankSelectAll">✔ تحديد الكل</button>'+
+    '<button type="button" class="btn btn-sm" id="ankSelectNone">✕ إلغاء تحديد الكل</button>'+
+  '</div>';
+  html+='<div class="checklist">';
+  KPI_REPORT_MODULES.forEach(function(m){
+    if(analyticalSelection[m.key]===undefined) analyticalSelection[m.key]=true;
+    html+='<label class="checkline"><input type="checkbox" data-ankchk="'+m.key+'" '+(analyticalSelection[m.key]?'checked':'')+'> '+esc(m.label)+'</label>';
+  });
+  html+='</div>';
+  html+='<div class="small muted" style="margin-top:10px">سيتم إضافة أي مؤشر تنفيذي جديد تلقائياً لهذه القائمة فور بنائه.</div>';
+  html+='<div class="toolbar" style="margin-top:14px"><button class="btn btn-primary" id="btnGenAnalytical">إنشاء التقرير التحليلي</button></div>';
+  html+='</div>';
+  return html;
+}
+
+function renderAnalyticalReportPreview(){
+  var html='<div class="panel" id="analyticalReportPreview">';
+  html+='<h3><span class="sq"></span>معاينة التقرير التحليلي — '+fmtDate(APP.analyticalReport.generatedAt)+'</h3>';
+  APP.analyticalReport.modules.forEach(function(mod){
+    html+='<div class="report-block">';
+    html+='<h4>'+esc(mod.title)+'</h4>';
+    html+='<div class="kpi-bignum" style="font-size:32px">'+esc(mod.bigStat.value)+'</div>';
+    html+='<div class="kpi-sub">'+esc(mod.subStat)+'</div>';
+    if(mod.targetInfo){
+      html+='<div class="small muted" style="margin-bottom:12px">المستهدف المرحلي: '+esc(mod.targetInfo.interim_pct!=null?mod.targetInfo.interim_pct:'')+'% '+esc(mod.targetInfo.interim_date||'')+' — المستهدف الوزاري: '+esc(mod.targetInfo.strategic_pct!=null?mod.targetInfo.strategic_pct:'')+'% بحلول '+esc(mod.targetInfo.strategic_date||'')+'</div>';
+    }
+    mod.comparisonGroups.forEach(function(g){
+      html+='<div class="kpi-compare-card"><div class="kpi-compare-title">'+esc(g.title)+'</div>';
+      g.rows.forEach(function(r){
+        html+='<div class="bar-row"><div class="bl">'+esc(r.label)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+r.pct+'%"></div></div><div class="bn">'+r.pct.toFixed(1)+'%</div></div>';
+        html+='<div class="small muted" style="margin-inline-start:118px;margin-top:-6px;margin-bottom:6px">'+r.count+' من أصل '+r.total+'</div>';
+      });
+      html+='</div>';
+    });
+    if(mod.insights && mod.insights.length){
+      html+='<div class="small" style="margin-top:10px"><strong>استنتاجات:</strong><ul style="margin:6px 0 0;padding-inline-start:20px">';
+      mod.insights.forEach(function(ins){ html+='<li style="margin-bottom:4px">'+esc(ins)+'</li>'; });
+      html+='</ul></div>';
+    }
+    if(mod.extraTable){
+      html+='<div style="margin-top:14px"><strong class="small">'+esc(mod.extraTable.title)+'</strong>';
+      html+='<div class="table-wrap" style="margin-top:8px"><table class="data"><thead><tr>'+mod.extraTable.headers.map(function(h){return '<th>'+esc(h)+'</th>';}).join('')+'</tr></thead><tbody>';
+      mod.extraTable.rows.forEach(function(row){ html+='<tr>'+row.map(function(c){return '<td>'+esc(c)+'</td>';}).join('')+'</tr>'; });
+      html+='</tbody></table></div></div>';
+    }
+    html+='</div>';
+  });
+  html+='</div>';
+  html+='<div class="toolbar">'+
+    '<button class="btn btn-accent" id="btnExpAnalyticalExcel">تصدير Excel</button>'+
+    '<button class="btn" id="btnExpAnalyticalWord">تصدير Word</button>'+
+    '<button class="btn" id="btnExpAnalyticalPdf">تصدير PDF</button>'+
+    '<button class="btn" id="btnExpAnalyticalInfo">تصدير انفوجرافيك</button>'+
+  '</div>';
+  return html;
+}
+
+function bindAnalyticalReportEvents(){
+  document.querySelectorAll('[data-ankchk]').forEach(function(cb){
+    cb.onchange=function(){ analyticalSelection[cb.dataset.ankchk]=cb.checked; };
+  });
+  var ankAllBtn=document.getElementById('ankSelectAll');
+  if(ankAllBtn) ankAllBtn.onclick=function(){ KPI_REPORT_MODULES.forEach(function(m){ analyticalSelection[m.key]=true; }); render(); };
+  var ankNoneBtn=document.getElementById('ankSelectNone');
+  if(ankNoneBtn) ankNoneBtn.onclick=function(){ KPI_REPORT_MODULES.forEach(function(m){ analyticalSelection[m.key]=false; }); render(); };
+  var genBtn=document.getElementById('btnGenAnalytical');
+  if(genBtn) genBtn.onclick=function(){
+    var modules=KPI_REPORT_MODULES.filter(function(m){return analyticalSelection[m.key];}).map(function(m){return m.compute();});
+    APP.analyticalReport={generatedAt:new Date().toISOString(), modules:modules};
+    toast('تم إنشاء التقرير التحليلي');
+    render();
+  };
+  var e1=document.getElementById('btnExpAnalyticalExcel'); if(e1) e1.onclick=exportAnalyticalExcel;
+  var e2=document.getElementById('btnExpAnalyticalWord'); if(e2) e2.onclick=exportAnalyticalWord;
+  var e3=document.getElementById('btnExpAnalyticalPdf'); if(e3) e3.onclick=exportAnalyticalPdf;
+  var e4=document.getElementById('btnExpAnalyticalInfo'); if(e4) e4.onclick=exportAnalyticalInfographic;
+}
+
+function exportAnalyticalExcel(){
+  if(!APP.analyticalReport) return;
+  var wb=XLSX.utils.book_new();
+  APP.analyticalReport.modules.forEach(function(mod){
+    var rows=[];
+    rows.push({'البيان':mod.bigStat.label, 'القيمة':mod.bigStat.value});
+    rows.push({'البيان':'التفاصيل', 'القيمة':mod.subStat});
+    mod.comparisonGroups.forEach(function(g){
+      rows.push({'البيان':'— '+g.title, 'القيمة':''});
+      g.rows.forEach(function(r){ rows.push({'البيان':r.label, 'القيمة':r.pct.toFixed(1)+'% ('+r.count+'/'+r.total+')'}); });
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), mod.title.slice(0,28));
+    if(mod.extraTable){
+      var exRows=mod.extraTable.rows.map(function(row){
+        var o={}; mod.extraTable.headers.forEach(function(h,i){ o[h]=row[i]; }); return o;
+      });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exRows), (mod.title+'-تفاصيل').slice(0,28));
+    }
+  });
+  XLSX.writeFile(wb, 'تقرير-تحليلي-بدر.xlsx');
+  toast('تم تصدير الملف');
+}
+
+function exportAnalyticalWord(){
+  if(!APP.analyticalReport) return;
+  var body='<h1 style="font-family:Tajawal,Arial">التقرير التحليلي — إدارة تعليم محافظة بدر</h1>';
+  body+='<p>تاريخ الإنشاء: '+fmtDate(APP.analyticalReport.generatedAt)+'</p>';
+  APP.analyticalReport.modules.forEach(function(mod){
+    body+='<h2>'+esc(mod.title)+'</h2>';
+    body+='<p><b>'+esc(mod.bigStat.value)+'</b> — '+esc(mod.subStat)+'</p>';
+    mod.comparisonGroups.forEach(function(g){
+      body+='<h3>'+esc(g.title)+'</h3><table border="1" cellspacing="0" cellpadding="5" style="border-collapse:collapse;width:100%"><tr><th>الفئة</th><th>العدد</th><th>الإجمالي</th><th>النسبة</th></tr>';
+      g.rows.forEach(function(r){ body+='<tr><td>'+esc(r.label)+'</td><td>'+r.count+'</td><td>'+r.total+'</td><td>'+r.pct.toFixed(1)+'%</td></tr>'; });
+      body+='</table><br>';
+    });
+    if(mod.insights && mod.insights.length){
+      body+='<h3>استنتاجات</h3><ul>'+mod.insights.map(function(i){return '<li>'+esc(i)+'</li>';}).join('')+'</ul>';
+    }
+    if(mod.extraTable){
+      body+='<h3>'+esc(mod.extraTable.title)+'</h3><table border="1" cellspacing="0" cellpadding="5" style="border-collapse:collapse;width:100%"><tr>'+mod.extraTable.headers.map(function(h){return '<th>'+esc(h)+'</th>';}).join('')+'</tr>';
+      mod.extraTable.rows.forEach(function(row){ body+='<tr>'+row.map(function(c){return '<td>'+esc(c)+'</td>';}).join('')+'</tr>'; });
+      body+='</table><br>';
+    }
+  });
+  var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'+
+    '<head><meta charset="utf-8"><style>body{font-family:Arial;direction:rtl;text-align:right}table{width:100%}th,td{border:1px solid #999;padding:5px;font-size:12px}</style></head>'+
+    '<body>'+body+'</body></html>';
+  var blob=new Blob(['\ufeff', html], {type:'application/msword'});
+  download('تقرير-تحليلي-بدر.doc', blob);
+}
+
+function exportAnalyticalPdf(){
+  var el=document.getElementById('analyticalReportPreview');
+  if(!el || !window.html2canvas || !window.jspdf){ toast('تعذر تجهيز أدوات التصدير', true); return; }
+  toast('جارٍ تجهيز ملف PDF...');
+  html2canvas(el, {scale:2, backgroundColor:'#ffffff'}).then(function(canvas){
+    var pdf=new window.jspdf.jsPDF('p','mm','a4');
+    var pageW=210, pageH=297;
+    var imgW=pageW-20;
+    var imgH=canvas.height*imgW/canvas.width;
+    var heightLeft=imgH, position=10;
+    var imgData=canvas.toDataURL('image/png');
+    pdf.addImage(imgData,'PNG',10,position,imgW,imgH);
+    heightLeft-=(pageH-20);
+    while(heightLeft>0){
+      position = heightLeft - imgH + 10;
+      pdf.addPage();
+      pdf.addImage(imgData,'PNG',10,position,imgW,imgH);
+      heightLeft-=(pageH-20);
+    }
+    pdf.save('تقرير-تحليلي-بدر.pdf');
+  }).catch(function(){ toast('تعذر إنشاء ملف PDF', true); });
+}
+
+function exportAnalyticalInfographic(){
+  var el=document.getElementById('analyticalReportPreview');
+  if(!el || !window.html2canvas){ toast('تعذر تجهيز أدوات التصدير', true); return; }
+  toast('جارٍ تجهيز الصورة...');
+  html2canvas(el, {scale:2, backgroundColor:'#ffffff'}).then(function(canvas){
+    canvas.toBlob(function(blob){ download('تقرير-تحليلي-بدر.png', blob); });
+  }).catch(function(){ toast('تعذر إنشاء الصورة', true); });
 }
 
 function generateReport(){
