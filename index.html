@@ -162,6 +162,17 @@ details.navgroup[open]>summary:after{transform:rotate(0deg)}
 .report-mode-tab{flex:1;min-width:220px;text-align:right;padding:16px 18px;border-radius:12px;border:2px solid var(--border);background:var(--surface);font-family:'Tajawal',sans-serif;font-size:15px;font-weight:800;color:var(--ink);cursor:pointer;transition:.15s}
 .report-mode-tab:hover{border-color:var(--primary)}
 .report-mode-tab.active{border-color:var(--primary);background:var(--primary-soft);color:var(--primary-dark)}
+
+.report-banner{background:linear-gradient(135deg,var(--primary-dark),var(--primary) 75%);color:#fff;padding:26px 30px;border-radius:14px;margin-bottom:22px;position:relative;overflow:hidden}
+.report-banner:before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 85% 15%, rgba(201,162,39,.28), transparent 45%)}
+.rb-eyebrow{color:var(--accent);font-weight:700;font-size:12px;letter-spacing:.5px;position:relative}
+.rb-title{font-size:23px;font-weight:800;margin-top:6px;font-family:'Tajawal',sans-serif;position:relative}
+.rb-sub{font-size:12.5px;color:#BFD8CD;margin-top:4px;position:relative}
+.report-block-colored{border-radius:12px;padding:20px 22px;background:#FBFCFA}
+.rb-mod-title{font-family:'Tajawal',sans-serif;font-size:17px;font-weight:800;color:var(--primary-dark);margin:0 0 14px;padding-bottom:10px;border-bottom:2px solid var(--accent);display:inline-block}
+.rb-border-info{border-inline-start:4px solid var(--info)}
+.rb-border-accent{border-inline-start:4px solid var(--accent)}
+.rb-insights{background:var(--primary-soft);border-radius:10px;padding:14px 16px;margin-top:14px;font-size:13px}
 .sticky-hscroll{position:fixed;bottom:0;height:14px;overflow-x:auto;overflow-y:hidden;z-index:45;background:var(--bg);border-top:1px solid var(--border)}
 .sticky-hscroll::-webkit-scrollbar{height:12px}
 #stickyHScrollInner{height:1px}
@@ -2243,6 +2254,53 @@ function bindReportsEvents(){
 
 /* ================= التقرير التحليلي (قابل للتوسّع لأي مؤشر قادم) ================= */
 var analyticalSelection={};
+var reportElements={header:true, bigStat:true, targets:true, genderChart:true, stageChart:true, insights:true, extraTable:true};
+
+function reportHeaderBanner(generatedAt){
+  return '<div class="report-banner">'+
+    '<div class="rb-eyebrow">إدارة التعليم — محافظة بدر</div>'+
+    '<div class="rb-title">التقرير التحليلي للمؤشرات التنفيذية</div>'+
+    '<div class="rb-sub">تاريخ الإنشاء: '+fmtDate(generatedAt)+'</div>'+
+  '</div>';
+}
+
+function svgDonutGauge(pct, interimPct, strategicPct){
+  var size=150, r=58, c=size/2;
+  var circumference=2*Math.PI*r;
+  var pctClamped=Math.max(0, Math.min(100, pct));
+  var offset=circumference*(1-pctClamped/100);
+  function pt(p){
+    var a=((Math.max(0,Math.min(100,p))/100)*360-90)*Math.PI/180;
+    return {x:c+r*Math.cos(a), y:c+r*Math.sin(a)};
+  }
+  var ip=pt(interimPct), sp=pt(strategicPct);
+  return '<svg viewBox="0 0 '+size+' '+size+'" width="150" height="150">'+
+    '<circle cx="'+c+'" cy="'+c+'" r="'+r+'" fill="none" stroke="#E1E4DE" stroke-width="14"/>'+
+    '<circle cx="'+c+'" cy="'+c+'" r="'+r+'" fill="none" stroke="#145C4B" stroke-width="14" stroke-linecap="round" '+
+      'stroke-dasharray="'+circumference+'" stroke-dashoffset="'+offset+'" transform="rotate(-90 '+c+' '+c+')"/>'+
+    '<circle cx="'+ip.x+'" cy="'+ip.y+'" r="5" fill="#2E5C8A" stroke="#fff" stroke-width="1.5"/>'+
+    '<circle cx="'+sp.x+'" cy="'+sp.y+'" r="5" fill="#B3423A" stroke="#fff" stroke-width="1.5"/>'+
+    '<text x="'+c+'" y="'+(c+8)+'" text-anchor="middle" font-size="26" font-weight="800" fill="#0D3E33" font-family="Tajawal,Arial">'+pctClamped.toFixed(1)+'%</text>'+
+  '</svg>';
+}
+
+function svgBarChart(rows, colors){
+  var width=380, barH=24, gap=12, chartW=230;
+  var height=rows.length*(barH+gap);
+  var bars=rows.map(function(r,i){
+    var y=i*(barH+gap);
+    var w=Math.max(2,(r.pct/100)*chartW);
+    var color=colors[i%colors.length];
+    return '<g>'+
+      '<text x="'+(width-4)+'" y="'+(y+barH/2+4)+'" text-anchor="end" font-size="12" font-family="Cairo,Arial" fill="#182620">'+esc(r.label)+'</text>'+
+      '<rect x="'+(width-70-chartW)+'" y="'+y+'" width="'+chartW+'" height="'+barH+'" rx="6" fill="#EEF1EC"/>'+
+      '<rect x="'+(width-70-chartW)+'" y="'+y+'" width="'+w+'" height="'+barH+'" rx="6" fill="'+color+'"/>'+
+      '<text x="'+(width-70-chartW-8)+'" y="'+(y+barH/2+4)+'" text-anchor="end" font-size="11.5" font-weight="700" font-family="Cairo,Arial" fill="#182620">'+r.pct.toFixed(1)+'%</text>'+
+    '</g>';
+  }).join('');
+  return '<svg viewBox="0 0 '+width+' '+height+'" width="100%" style="max-width:420px;display:block" height="'+height+'">'+bars+'</svg>';
+}
+
 function computeExcellenceReportModule(){
   var k=computeExcellenceKpi();
   var s=APP.kpiSettings||KPI_DEFAULTS;
@@ -2307,37 +2365,71 @@ function renderAnalyticalReportSetup(){
   });
   html+='</div>';
   html+='<div class="small muted" style="margin-top:10px">سيتم إضافة أي مؤشر تنفيذي جديد تلقائياً لهذه القائمة فور بنائه.</div>';
+
+  html+='<div class="divider"></div>';
+  html+='<h3><span class="sq"></span>عناصر التقرير المطلوب تضمينها</h3>';
+  var elementLabels=[
+    {key:'header', label:'رأس التقرير الملوّن (شعار وعنوان)'},
+    {key:'bigStat', label:'الرقم الرئيسي والمقياس الدائري (Gauge)'},
+    {key:'targets', label:'المستهدف المرحلي والوزاري'},
+    {key:'genderChart', label:'رسم بياني — المقارنة حسب النوع'},
+    {key:'stageChart', label:'رسم بياني — المقارنة حسب المرحلة'},
+    {key:'insights', label:'الاستنتاجات النصية التلقائية'},
+    {key:'extraTable', label:'جدول المدارس الواعدة بالتميز'}
+  ];
+  html+='<div class="checklist">';
+  elementLabels.forEach(function(el){
+    html+='<label class="checkline"><input type="checkbox" data-elchk="'+el.key+'" '+(reportElements[el.key]?'checked':'')+'> '+esc(el.label)+'</label>';
+  });
+  html+='</div>';
+
   html+='<div class="toolbar" style="margin-top:14px"><button class="btn btn-primary" id="btnGenAnalytical">إنشاء التقرير التحليلي</button></div>';
   html+='</div>';
   return html;
 }
 
 function renderAnalyticalReportPreview(){
-  var html='<div class="panel" id="analyticalReportPreview">';
-  html+='<h3><span class="sq"></span>معاينة التقرير التحليلي — '+fmtDate(APP.analyticalReport.generatedAt)+'</h3>';
+  var html='<div class="panel" id="analyticalReportPreview" style="background:#fff">';
+  if(reportElements.header) html+=reportHeaderBanner(APP.analyticalReport.generatedAt);
+  else html+='<h3><span class="sq"></span>معاينة التقرير التحليلي — '+fmtDate(APP.analyticalReport.generatedAt)+'</h3>';
+
   APP.analyticalReport.modules.forEach(function(mod){
-    html+='<div class="report-block">';
-    html+='<h4>'+esc(mod.title)+'</h4>';
-    html+='<div class="kpi-bignum" style="font-size:32px">'+esc(mod.bigStat.value)+'</div>';
-    html+='<div class="kpi-sub">'+esc(mod.subStat)+'</div>';
-    if(mod.targetInfo){
-      html+='<div class="small muted" style="margin-bottom:12px">المستهدف المرحلي: '+esc(mod.targetInfo.interim_pct!=null?mod.targetInfo.interim_pct:'')+'% '+esc(mod.targetInfo.interim_date||'')+' — المستهدف الوزاري: '+esc(mod.targetInfo.strategic_pct!=null?mod.targetInfo.strategic_pct:'')+'% بحلول '+esc(mod.targetInfo.strategic_date||'')+'</div>';
-    }
-    mod.comparisonGroups.forEach(function(g){
-      html+='<div class="kpi-compare-card"><div class="kpi-compare-title">'+esc(g.title)+'</div>';
-      g.rows.forEach(function(r){
-        html+='<div class="bar-row"><div class="bl">'+esc(r.label)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+r.pct+'%"></div></div><div class="bn">'+r.pct.toFixed(1)+'%</div></div>';
-        html+='<div class="small muted" style="margin-inline-start:118px;margin-top:-6px;margin-bottom:6px">'+r.count+' من أصل '+r.total+'</div>';
-      });
+    html+='<div class="report-block report-block-colored">';
+    html+='<h4 class="rb-mod-title">'+esc(mod.title)+'</h4>';
+
+    if(reportElements.bigStat){
+      var s=mod.targetInfo||KPI_DEFAULTS;
+      html+='<div class="flexrow" style="align-items:center;gap:22px;flex-wrap:wrap;margin-bottom:10px">';
+      html+='<div>'+svgDonutGauge(parseFloat(mod.bigStat.value), s.interim_pct!=null?s.interim_pct:KPI_DEFAULTS.interim_pct, s.strategic_pct!=null?s.strategic_pct:KPI_DEFAULTS.strategic_pct)+'</div>';
+      html+='<div><div class="kpi-bignum" style="font-size:34px">'+esc(mod.bigStat.value)+'</div><div class="kpi-sub" style="margin-bottom:4px">'+esc(mod.subStat)+'</div>';
+      html+='<div class="small"><span style="color:#2E5C8A">●</span> مرحلي &nbsp; <span style="color:#B3423A">●</span> وزاري</div></div>';
       html+='</div>';
+    }
+    if(reportElements.targets && mod.targetInfo){
+      var t=mod.targetInfo;
+      html+='<div class="small muted" style="margin-bottom:14px">المستهدف المرحلي: '+esc(t.interim_pct!=null?t.interim_pct:'')+'% '+esc(t.interim_date||'')+' — المستهدف الوزاري: '+esc(t.strategic_pct!=null?t.strategic_pct:'')+'% بحلول '+esc(t.strategic_date||'')+'</div>';
+    }
+
+    mod.comparisonGroups.forEach(function(g, gi){
+      var showChart = (gi===0 && reportElements.genderChart) || (gi===1 && reportElements.stageChart);
+      if(!showChart) return;
+      var colors=['#145C4B','#C9A227','#2E5C8A','#C1690E'];
+      html+='<div class="kpi-compare-card rb-border-'+(gi===0?'info':'accent')+'"><div class="kpi-compare-title">'+esc(g.title)+'</div>';
+      html+=svgBarChart(g.rows, colors);
+      html+='<div style="margin-top:8px">';
+      g.rows.forEach(function(r){
+        html+='<div class="small muted">'+esc(r.label)+': '+r.count+' من أصل '+r.total+'</div>';
+      });
+      html+='</div></div>';
     });
-    if(mod.insights && mod.insights.length){
-      html+='<div class="small" style="margin-top:10px"><strong>استنتاجات:</strong><ul style="margin:6px 0 0;padding-inline-start:20px">';
-      mod.insights.forEach(function(ins){ html+='<li style="margin-bottom:4px">'+esc(ins)+'</li>'; });
+
+    if(reportElements.insights && mod.insights && mod.insights.length){
+      html+='<div class="rb-insights"><strong>💡 استنتاجات:</strong><ul style="margin:8px 0 0;padding-inline-start:20px">';
+      mod.insights.forEach(function(ins){ html+='<li style="margin-bottom:5px">'+esc(ins)+'</li>'; });
       html+='</ul></div>';
     }
-    if(mod.extraTable){
-      html+='<div style="margin-top:14px"><strong class="small">'+esc(mod.extraTable.title)+'</strong>';
+    if(reportElements.extraTable && mod.extraTable){
+      html+='<div style="margin-top:14px"><strong class="small">🌟 '+esc(mod.extraTable.title)+'</strong>';
       html+='<div class="table-wrap" style="margin-top:8px"><table class="data"><thead><tr>'+mod.extraTable.headers.map(function(h){return '<th>'+esc(h)+'</th>';}).join('')+'</tr></thead><tbody>';
       mod.extraTable.rows.forEach(function(row){ html+='<tr>'+row.map(function(c){return '<td>'+esc(c)+'</td>';}).join('')+'</tr>'; });
       html+='</tbody></table></div></div>';
@@ -2357,6 +2449,9 @@ function renderAnalyticalReportPreview(){
 function bindAnalyticalReportEvents(){
   document.querySelectorAll('[data-ankchk]').forEach(function(cb){
     cb.onchange=function(){ analyticalSelection[cb.dataset.ankchk]=cb.checked; };
+  });
+  document.querySelectorAll('[data-elchk]').forEach(function(cb){
+    cb.onchange=function(){ reportElements[cb.dataset.elchk]=cb.checked; };
   });
   var ankAllBtn=document.getElementById('ankSelectAll');
   if(ankAllBtn) ankAllBtn.onclick=function(){ KPI_REPORT_MODULES.forEach(function(m){ analyticalSelection[m.key]=true; }); render(); };
@@ -2380,14 +2475,25 @@ function exportAnalyticalExcel(){
   var wb=XLSX.utils.book_new();
   APP.analyticalReport.modules.forEach(function(mod){
     var rows=[];
-    rows.push({'البيان':mod.bigStat.label, 'القيمة':mod.bigStat.value});
-    rows.push({'البيان':'التفاصيل', 'القيمة':mod.subStat});
-    mod.comparisonGroups.forEach(function(g){
+    if(reportElements.bigStat){
+      rows.push({'البيان':mod.bigStat.label, 'القيمة':mod.bigStat.value});
+      rows.push({'البيان':'التفاصيل', 'القيمة':mod.subStat});
+    }
+    if(reportElements.targets && mod.targetInfo){
+      rows.push({'البيان':'المستهدف المرحلي', 'القيمة':(mod.targetInfo.interim_pct||'')+'% '+(mod.targetInfo.interim_date||'')});
+      rows.push({'البيان':'المستهدف الوزاري', 'القيمة':(mod.targetInfo.strategic_pct||'')+'% '+(mod.targetInfo.strategic_date||'')});
+    }
+    mod.comparisonGroups.forEach(function(g, gi){
+      var show=(gi===0 && reportElements.genderChart) || (gi===1 && reportElements.stageChart);
+      if(!show) return;
       rows.push({'البيان':'— '+g.title, 'القيمة':''});
       g.rows.forEach(function(r){ rows.push({'البيان':r.label, 'القيمة':r.pct.toFixed(1)+'% ('+r.count+'/'+r.total+')'}); });
     });
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), mod.title.slice(0,28));
-    if(mod.extraTable){
+    if(reportElements.insights){
+      mod.insights.forEach(function(ins,i){ rows.push({'البيان':'استنتاج '+(i+1), 'القيمة':ins}); });
+    }
+    if(rows.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), mod.title.slice(0,28));
+    if(reportElements.extraTable && mod.extraTable){
       var exRows=mod.extraTable.rows.map(function(row){
         var o={}; mod.extraTable.headers.forEach(function(h,i){ o[h]=row[i]; }); return o;
       });
@@ -2404,16 +2510,21 @@ function exportAnalyticalWord(){
   body+='<p>تاريخ الإنشاء: '+fmtDate(APP.analyticalReport.generatedAt)+'</p>';
   APP.analyticalReport.modules.forEach(function(mod){
     body+='<h2>'+esc(mod.title)+'</h2>';
-    body+='<p><b>'+esc(mod.bigStat.value)+'</b> — '+esc(mod.subStat)+'</p>';
-    mod.comparisonGroups.forEach(function(g){
+    if(reportElements.bigStat) body+='<p><b>'+esc(mod.bigStat.value)+'</b> — '+esc(mod.subStat)+'</p>';
+    if(reportElements.targets && mod.targetInfo){
+      body+='<p>المستهدف المرحلي: '+esc(mod.targetInfo.interim_pct||'')+'% '+esc(mod.targetInfo.interim_date||'')+' — المستهدف الوزاري: '+esc(mod.targetInfo.strategic_pct||'')+'% بحلول '+esc(mod.targetInfo.strategic_date||'')+'</p>';
+    }
+    mod.comparisonGroups.forEach(function(g, gi){
+      var show=(gi===0 && reportElements.genderChart) || (gi===1 && reportElements.stageChart);
+      if(!show) return;
       body+='<h3>'+esc(g.title)+'</h3><table border="1" cellspacing="0" cellpadding="5" style="border-collapse:collapse;width:100%"><tr><th>الفئة</th><th>العدد</th><th>الإجمالي</th><th>النسبة</th></tr>';
       g.rows.forEach(function(r){ body+='<tr><td>'+esc(r.label)+'</td><td>'+r.count+'</td><td>'+r.total+'</td><td>'+r.pct.toFixed(1)+'%</td></tr>'; });
       body+='</table><br>';
     });
-    if(mod.insights && mod.insights.length){
+    if(reportElements.insights && mod.insights && mod.insights.length){
       body+='<h3>استنتاجات</h3><ul>'+mod.insights.map(function(i){return '<li>'+esc(i)+'</li>';}).join('')+'</ul>';
     }
-    if(mod.extraTable){
+    if(reportElements.extraTable && mod.extraTable){
       body+='<h3>'+esc(mod.extraTable.title)+'</h3><table border="1" cellspacing="0" cellpadding="5" style="border-collapse:collapse;width:100%"><tr>'+mod.extraTable.headers.map(function(h){return '<th>'+esc(h)+'</th>';}).join('')+'</tr>';
       mod.extraTable.rows.forEach(function(row){ body+='<tr>'+row.map(function(c){return '<td>'+esc(c)+'</td>';}).join('')+'</tr>'; });
       body+='</table><br>';
