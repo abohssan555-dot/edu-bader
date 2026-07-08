@@ -401,14 +401,20 @@ function personFields(extra){
     ]);
 }
 
+var PERF_OPTS=['التهيئة','الانطلاق','التقدم','التميز','لا يوجد'];
+
 var SCHOOL_MODULE = {
   id:'schools', section:'base', label:'بيانات المدارس', icon:'●',
   fields:[
     T.text('name','اسم المدرسة',true),
     T.select('gender','نوع المدرسة',['بنين','بنات']),
-    T.select('stage','المرحلة الدراسية',['ابتدائي','متوسط','ثانوي','متعدد المراحل']),
-    T.num('studentsCount','عدد الطلاب'),
+    T.select('stage','المرحلة الدراسية',['رياض أطفال','ابتدائي','متوسط','ثانوي','متعدد المراحل']),
+    T.num('deputyCount','عدد الوكيل/الوكيلة'),
+    T.num('counselorCount','عدد الموجه/الموجهة الطلابية'),
+    T.num('adminAssistantCount','عدد المساعد/المساعدة الإداري(ة)'),
     T.num('teachersCount','عدد المعلمين'),
+    T.num('studentsCount','عدد الطلاب'),
+    T.select('evalLevel','مستوى المدرسة في التقييم', PERF_OPTS),
     T.text('principal','قائد المدرسة'),
     T.text('supervisor','المشرف المسؤول'),
     T.text('location','الحي / الموقع'),
@@ -416,7 +422,6 @@ var SCHOOL_MODULE = {
   ]
 };
 
-var PERF_OPTS=['التهيئة','الانطلاق','التقدم','التميز','لا يوجد'];
 
 var CATEGORIES = [
   {id:'exec_team', section:'internal', group:'المشرفون', label:'الفريق التنفيذي', fields:personFields([T.text('position','المسمى الوظيفي')])},
@@ -443,7 +448,7 @@ var CATEGORIES = [
   {id:'school_performance', section:'base', group:null, label:'الأداء المدرسي', fields:[
     T.school('schoolId','اسم المدرسة'),
     T.text('statNumber','الرقم الإحصائي للمدرسة'),
-    T.select('stage','المرحلة',['ابتدائي','متوسط','ثانوي']),
+    T.select('stage','المرحلة',['رياض أطفال','ابتدائي','متوسط','ثانوي']),
     T.select('gender','الجنس',['بنين','بنات']),
     T.select('buildingType','نوع المبنى',['حكومي','مستأجر']),
     T.select('buildingIndependence','استقلالية المبنى',['مستقل','مشترك']),
@@ -539,6 +544,8 @@ function rowToSchool(row){
   return {
     id:row.id, name:row.name, gender:row.gender, stage:row.stage,
     studentsCount: row.students_count!=null?row.students_count:'', teachersCount: row.teachers_count!=null?row.teachers_count:'',
+    deputyCount: row.deputy_count!=null?row.deputy_count:'', counselorCount: row.counselor_count!=null?row.counselor_count:'',
+    adminAssistantCount: row.admin_assistant_count!=null?row.admin_assistant_count:'', evalLevel: row.eval_level||'',
     principal: row.principal, supervisor: row.supervisor, location: row.location, notes: row.notes,
     archived: row.archived, source:'قاعدة البيانات', createdAt: row.created_at, updatedAt: row.updated_at, createdBy: row.created_by
   };
@@ -548,6 +555,10 @@ function schoolToRow(data){
     name:data.name||null, gender:data.gender||null, stage:data.stage||null,
     students_count: data.studentsCount!==''&&data.studentsCount!=null? parseInt(data.studentsCount,10):null,
     teachers_count: data.teachersCount!==''&&data.teachersCount!=null? parseInt(data.teachersCount,10):null,
+    deputy_count: data.deputyCount!==''&&data.deputyCount!=null? parseInt(data.deputyCount,10):null,
+    counselor_count: data.counselorCount!==''&&data.counselorCount!=null? parseInt(data.counselorCount,10):null,
+    admin_assistant_count: data.adminAssistantCount!==''&&data.adminAssistantCount!=null? parseInt(data.adminAssistantCount,10):null,
+    eval_level: data.evalLevel||null,
     principal:data.principal||null, supervisor:data.supervisor||null, location:data.location||null, notes:data.notes||null
   };
 }
@@ -1199,7 +1210,7 @@ function renderModuleView(modId){
   }
   if(hasStageField){
     html+='<select id="filterStage" class="search-box search-box-sm"><option value="">🎓 كل المراحل</option>'+
-      ['ابتدائي','متوسط','ثانوي'].map(function(s){return '<option value="'+s+'" '+(filt.stage===s?'selected':'')+'>'+s+'</option>';}).join('')+
+      ['رياض أطفال','ابتدائي','متوسط','ثانوي'].map(function(s){return '<option value="'+s+'" '+(filt.stage===s?'selected':'')+'>'+s+'</option>';}).join('')+
       '</select>';
   }
   html+='</div>';
