@@ -1083,15 +1083,42 @@ function renderSchoolsStatsPanel(records){
   var total=records.length;
   var byStage={'رياض أطفال':0,'ابتدائي':0,'متوسط':0,'ثانوي':0,'متعدد المراحل':0};
   var byGender={'بنين':0,'بنات':0};
-  var byAdmin={'مستقلة':0,'مشتركة':0};
+  var STAGE_RANK={'رياض أطفال':0,'ابتدائي':1,'متوسط':2,'ثانوي':3,'متعدد المراحل':2};
+
+  /* الآلية: نجمّع المدارس حسب اسم المدير/ة. مدير على مدرسة واحدة فقط = "مستقلة".
+     مدير على أكثر من مدرسة = كلها "مشتركة"، وتُحتسب الأعداد فقط لمدرسة واحدة (الأعلى مرحلة) لتفادي التكرار. */
+  var byPrincipal={};
+  records.forEach(function(r){
+    var p=(r.principal||'').trim();
+    if(p){ (byPrincipal[p]=byPrincipal[p]||[]).push(r); }
+  });
+  var distinctPrincipals=Object.keys(byPrincipal).length;
+  var independentCount=0, sharedGroupsCount=0, sharedSchoolsCount=0, noPrincipalCount=0;
+  var primaryIdForGroup={};
+  Object.keys(byPrincipal).forEach(function(p){
+    var group=byPrincipal[p];
+    if(group.length===1){ independentCount++; }
+    else{
+      sharedGroupsCount++;
+      sharedSchoolsCount+=group.length;
+      var primary=group.slice().sort(function(a,b){ return (STAGE_RANK[b.stage]||0)-(STAGE_RANK[a.stage]||0); })[0];
+      primaryIdForGroup[primary.id]=true;
+    }
+  });
+
   var totalStudents=0, totalTeachers=0, totalDeputies=0, totalCounselors=0, totalAdmins=0;
   records.forEach(function(r){
     if(byStage.hasOwnProperty(r.stage)) byStage[r.stage]++;
     if(byGender.hasOwnProperty(r.gender)) byGender[r.gender]++;
-    if(byAdmin.hasOwnProperty(r.adminType)) byAdmin[r.adminType]++;
-    if(r.countBasis!=='مكرر'){
-      var st=parseFloat(r.studentsCount); if(!isNaN(st)) totalStudents+=st;
-      var te=parseFloat(r.teachersCount); if(!isNaN(te)) totalTeachers+=te;
+    var p=(r.principal||'').trim();
+    if(!p) noPrincipalCount++;
+    var group=p?byPrincipal[p]:null;
+    var isDuplicateForCounting = group && group.length>1 && !primaryIdForGroup[r.id];
+    /* الطلاب والمعلمون أعداد خاصة بكل مدرسة على حدة (تُحتسب دائماً)؛
+       الوكيل/الموجه/الإداري وظائف مشتركة ضمن المجمّع (تُحتسب مرة واحدة فقط) */
+    var st=parseFloat(r.studentsCount); if(!isNaN(st)) totalStudents+=st;
+    var te=parseFloat(r.teachersCount); if(!isNaN(te)) totalTeachers+=te;
+    if(!isDuplicateForCounting){
       var de=parseFloat(r.deputyCount); if(!isNaN(de)) totalDeputies+=de;
       var co=parseFloat(r.counselorCount); if(!isNaN(co)) totalCounselors+=co;
       var ad=parseFloat(r.adminAssistantCount); if(!isNaN(ad)) totalAdmins+=ad;
@@ -1107,8 +1134,10 @@ function renderSchoolsStatsPanel(records){
   html+='<span class="stat-chip">بنات: <b>'+byGender['بنات']+'</b></span>';
   html+='</div>';
   html+='<div class="stats-compact-bar" style="margin-top:6px">';
-  html+='<span class="stat-chip">مستقلة الإدارة: <b>'+byAdmin['مستقلة']+'</b></span>';
-  html+='<span class="stat-chip">مشتركة الإدارة: <b>'+byAdmin['مشتركة']+'</b></span>';
+  html+='<span class="stat-chip">👤 عدد المدراء/المديرات: <b>'+distinctPrincipals+'</b></span>';
+  html+='<span class="stat-chip">مستقلة الإدارة: <b>'+independentCount+'</b></span>';
+  html+='<span class="stat-chip">مشتركة الإدارة: <b>'+sharedSchoolsCount+'</b> ('+sharedGroupsCount+' مجمّع)</span>';
+  if(noPrincipalCount) html+='<span class="stat-chip">بلا اسم مدير مُدخل: <b>'+noPrincipalCount+'</b></span>';
   html+='<span class="stat-sep"></span>';
   html+='<span class="stat-chip">إجمالي الطلاب (المُدخل): <b>'+totalStudents+'</b></span>';
   html+='<span class="stat-chip">إجمالي المعلمين (المُدخل): <b>'+totalTeachers+'</b></span>';
@@ -1116,7 +1145,7 @@ function renderSchoolsStatsPanel(records){
   html+='<span class="stat-chip">إجمالي الموجهين/الموجهات: <b>'+totalCounselors+'</b></span>';
   html+='<span class="stat-chip">إجمالي المساعدين/المساعدات الإداريين: <b>'+totalAdmins+'</b></span>';
   html+='</div>';
-  html+='<div class="small muted" style="margin-top:6px">* الإجماليات تستثني تلقائياً السجلات الموسومة "مكرر" ضمن مجمّع إداري، لتفادي احتساب نفس العدد أكثر من مرة.</div>';
+  html+='<div class="small muted" style="margin-top:6px">* أعداد الطلاب والمعلمين تُحتسب كاملة لكل مدرسة على حدة. أما الوكيل/الموجه/المساعد الإداري فتُحتسب مرة واحدة فقط لكل مجمّع إداري مشترك (لأنها وظائف مشتركة بين عدة مدارس بمدير واحد)، لتفادي احتسابها أكثر من مرة.</div>';
   return html;
 }
 
