@@ -1084,7 +1084,7 @@ function renderSchoolsStatsPanel(records){
   var byStage={'رياض أطفال':0,'ابتدائي':0,'متوسط':0,'ثانوي':0,'متعدد المراحل':0};
   var byGender={'بنين':0,'بنات':0};
   var byAdmin={'مستقلة':0,'مشتركة':0};
-  var totalStudents=0, totalTeachers=0;
+  var totalStudents=0, totalTeachers=0, totalDeputies=0, totalCounselors=0, totalAdmins=0;
   records.forEach(function(r){
     if(byStage.hasOwnProperty(r.stage)) byStage[r.stage]++;
     if(byGender.hasOwnProperty(r.gender)) byGender[r.gender]++;
@@ -1092,6 +1092,9 @@ function renderSchoolsStatsPanel(records){
     if(r.countBasis!=='مكرر'){
       var st=parseFloat(r.studentsCount); if(!isNaN(st)) totalStudents+=st;
       var te=parseFloat(r.teachersCount); if(!isNaN(te)) totalTeachers+=te;
+      var de=parseFloat(r.deputyCount); if(!isNaN(de)) totalDeputies+=de;
+      var co=parseFloat(r.counselorCount); if(!isNaN(co)) totalCounselors+=co;
+      var ad=parseFloat(r.adminAssistantCount); if(!isNaN(ad)) totalAdmins+=ad;
     }
   });
   var html='<div class="stats-compact-bar">';
@@ -1109,6 +1112,9 @@ function renderSchoolsStatsPanel(records){
   html+='<span class="stat-sep"></span>';
   html+='<span class="stat-chip">إجمالي الطلاب (المُدخل): <b>'+totalStudents+'</b></span>';
   html+='<span class="stat-chip">إجمالي المعلمين (المُدخل): <b>'+totalTeachers+'</b></span>';
+  html+='<span class="stat-chip">إجمالي الوكلاء/الوكيلات: <b>'+totalDeputies+'</b></span>';
+  html+='<span class="stat-chip">إجمالي الموجهين/الموجهات: <b>'+totalCounselors+'</b></span>';
+  html+='<span class="stat-chip">إجمالي المساعدين/المساعدات الإداريين: <b>'+totalAdmins+'</b></span>';
   html+='</div>';
   html+='<div class="small muted" style="margin-top:6px">* الإجماليات تستثني تلقائياً السجلات الموسومة "مكرر" ضمن مجمّع إداري، لتفادي احتساب نفس العدد أكثر من مرة.</div>';
   return html;
