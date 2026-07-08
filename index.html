@@ -1079,6 +1079,41 @@ function rowPerfBg(v){
   return m[v]||'';
 }
 
+function renderSchoolsStatsPanel(records){
+  var total=records.length;
+  var byStage={'رياض أطفال':0,'ابتدائي':0,'متوسط':0,'ثانوي':0,'متعدد المراحل':0};
+  var byGender={'بنين':0,'بنات':0};
+  var byAdmin={'مستقلة':0,'مشتركة':0};
+  var totalStudents=0, totalTeachers=0;
+  records.forEach(function(r){
+    if(byStage.hasOwnProperty(r.stage)) byStage[r.stage]++;
+    if(byGender.hasOwnProperty(r.gender)) byGender[r.gender]++;
+    if(byAdmin.hasOwnProperty(r.adminType)) byAdmin[r.adminType]++;
+    if(r.countBasis!=='مكرر'){
+      var st=parseFloat(r.studentsCount); if(!isNaN(st)) totalStudents+=st;
+      var te=parseFloat(r.teachersCount); if(!isNaN(te)) totalTeachers+=te;
+    }
+  });
+  var html='<div class="stats-compact-bar">';
+  html+='<span class="stat-chip stat-chip-main">🏫 إجمالي المدارس: <b>'+total+'</b></span>';
+  html+='<span class="stat-chip">رياض أطفال: <b>'+byStage['رياض أطفال']+'</b></span>';
+  html+='<span class="stat-chip">ابتدائي: <b>'+byStage['ابتدائي']+'</b></span>';
+  html+='<span class="stat-chip">متوسط: <b>'+byStage['متوسط']+'</b></span>';
+  html+='<span class="stat-chip">ثانوي: <b>'+byStage['ثانوي']+'</b></span>';
+  html+='<span class="stat-chip">بنين: <b>'+byGender['بنين']+'</b></span>';
+  html+='<span class="stat-chip">بنات: <b>'+byGender['بنات']+'</b></span>';
+  html+='</div>';
+  html+='<div class="stats-compact-bar" style="margin-top:6px">';
+  html+='<span class="stat-chip">مستقلة الإدارة: <b>'+byAdmin['مستقلة']+'</b></span>';
+  html+='<span class="stat-chip">مشتركة الإدارة: <b>'+byAdmin['مشتركة']+'</b></span>';
+  html+='<span class="stat-sep"></span>';
+  html+='<span class="stat-chip">إجمالي الطلاب (المُدخل): <b>'+totalStudents+'</b></span>';
+  html+='<span class="stat-chip">إجمالي المعلمين (المُدخل): <b>'+totalTeachers+'</b></span>';
+  html+='</div>';
+  html+='<div class="small muted" style="margin-top:6px">* الإجماليات تستثني تلقائياً السجلات الموسومة "مكرر" ضمن مجمّع إداري، لتفادي احتساب نفس العدد أكثر من مرة.</div>';
+  return html;
+}
+
 function renderPerfStatsPanel(records){
   var total=records.length;
   var byStage={'ابتدائي':0,'متوسط':0,'ثانوي':0};
@@ -1232,6 +1267,9 @@ function renderModuleView(modId){
   if(modId==='school_performance'){
     html+=renderPerfStatsPanel(records);
   }
+  if(modId==='schools'){
+    html+=renderSchoolsStatsPanel(records);
+  }
 
   if(modId==='school_performance' && canEdit()){
     html+='<div class="panel" style="padding:12px 16px;margin-bottom:16px;border-inline-start:4px solid var(--accent)">'+
@@ -1309,7 +1347,7 @@ function bindModuleEvents(modId){
   if(impBtn && fileInput){
     impBtn.onclick=function(){ openImportChoiceModal(modId, fileInput); };
     fileInput.onchange=function(){
-      if(fileInput.files && fileInput.files[0]) importModuleExcel(modId, fileInput.files[0], fileInput.dataset.replaceMode==='1');
+      if(fileInput.files && fileInput.files[0]) importModuleExcel(modId, fileInput.files[0], fileInput.dataset.importMode||'add');
       fileInput.value='';
     };
   }
@@ -1608,21 +1646,24 @@ function openImportChoiceModal(modId, fileInput){
   html+='<p class="small muted">ماذا تريد أن تفعل بالسجلات الحالية في هذه الفئة عند الاستيراد؟</p>';
   html+='<div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">';
   html+='<button type="button" class="btn btn-primary" id="impModeAdd" style="justify-content:flex-start;padding:12px 14px">'+
-    '<b>➕ إضافة إلى السجلات الحالية</b><br><span class="small" style="opacity:.85">يبقي كل ما هو موجود ويضيف صفوف الملف الجديد فوقها</span></button>';
+    '<b>➕ إضافة كسجلات جديدة</b><br><span class="small" style="opacity:.85">يبقي كل ما هو موجود ويضيف صفوف الملف كسجلات جديدة (قد يسبب تكراراً إن كانت موجودة مسبقاً)</span></button>';
+  html+='<button type="button" class="btn btn-accent" id="impModeMerge" style="justify-content:flex-start;padding:12px 14px">'+
+    '<b>🔄 تحديث المطابق بالاسم + إضافة الجديد</b><br><span class="small" style="opacity:.85">يحدّث فقط الحقول المكتوبة في الملف لأي سجل بنفس الاسم موجود مسبقاً (يبقي بقية بياناته كما هي)، ويضيف ما هو غير موجود</span></button>';
   html+='<button type="button" class="btn btn-danger" id="impModeReplace" style="justify-content:flex-start;padding:12px 14px">'+
     '<b>🗑 استبدال كامل</b><br><span class="small" style="opacity:.85">يحذف كل السجلات الحالية في هذه الفئة نهائياً، ثم يستورد الملف الجديد بدلاً منها</span></button>';
   html+='</div>';
   html+='<div class="modal-actions"><button type="button" class="btn" id="modalCancel">إلغاء</button></div>';
   openModal(html);
   document.getElementById('modalCancel').onclick=closeModal;
-  document.getElementById('impModeAdd').onclick=function(){ fileInput.dataset.replaceMode='0'; closeModal(); fileInput.click(); };
+  document.getElementById('impModeAdd').onclick=function(){ fileInput.dataset.importMode='add'; closeModal(); fileInput.click(); };
+  document.getElementById('impModeMerge').onclick=function(){ fileInput.dataset.importMode='merge'; closeModal(); fileInput.click(); };
   document.getElementById('impModeReplace').onclick=function(){
     if(!confirm('سيتم حذف كل السجلات الحالية في "'+mod.label+'" نهائياً قبل الاستيراد. لا يمكن التراجع عن هذه الخطوة. متابعة؟')){ return; }
-    fileInput.dataset.replaceMode='1'; closeModal(); fileInput.click();
+    fileInput.dataset.importMode='replace'; closeModal(); fileInput.click();
   };
 }
 
-async function importModuleExcel(modId, file, replaceMode){
+async function importModuleExcel(modId, file, importMode){
   var mod=getModule(modId);
   var reader=new FileReader();
   reader.onload=async function(e){
@@ -1638,6 +1679,54 @@ async function importModuleExcel(modId, file, replaceMode){
     }
     if(!rows.length){ toast('الملف لا يحتوي على أي صفوف بيانات', true); return; }
 
+    /* ---- وضع "تحديث المطابق بالاسم + إضافة الجديد" ---- */
+    if(importMode==='merge'){
+      var idField = mod.fields.some(function(f){return f.key==='name';}) ? 'name' : 'title';
+      toast('جارٍ المطابقة والتحديث...');
+      var updated=0, addedM=0, skippedM=0, failedM=0, schoolsCreatedM=0;
+      for(var mi=0; mi<rows.length; mi++){
+        var rawRow=rows[mi];
+        var recFull=mapRowToRecord(mod, rawRow);
+        var beforeCountM=APP.db.schools.length;
+        recFull=await fillMissingSchoolLinks(mod, recFull, rawRow);
+        if(APP.db.schools.length>beforeCountM) schoolsCreatedM++;
+        var idVal=String(recFull[idField]||'').trim();
+        if(!idVal){ skippedM++; continue; }
+        var store=getStore(modId);
+        var existing=store.find(function(s){ return !s.archived && String(s[idField]||'').trim()===idVal; });
+        var partial={};
+        mod.fields.forEach(function(f){
+          var v=recFull[f.key];
+          if(v!==undefined && v!==''){ partial[f.key]=v; }
+        });
+        if(existing){
+          try{
+            var merged=Object.assign({}, existing, partial);
+            var resU=await dbUpdateRecord(modId, existing.id, merged);
+            Object.assign(existing, resU);
+            updated++;
+          }catch(errU){ failedM++; }
+        }else{
+          var reqOkM=mod.fields.filter(function(f){return f.required;}).every(function(f){return recFull[f.key];});
+          if(!reqOkM){ skippedM++; continue; }
+          try{
+            recFull.source='استيراد إكسل (تحديث)';
+            var createdM=await dbInsertRecord(modId, recFull);
+            store.unshift(createdM);
+            addedM++;
+          }catch(errC){ failedM++; }
+        }
+      }
+      render();
+      var msgM='تم تحديث '+updated+' سجل مطابق، وإضافة '+addedM+' سجل جديد';
+      if(schoolsCreatedM) msgM+='، وإنشاء '+schoolsCreatedM+' مدرسة تلقائياً';
+      if(skippedM) msgM+=' — تم تجاهل '+skippedM+' صف';
+      if(failedM) msgM+=' — تعذر حفظ '+failedM+' صف';
+      toast(msgM);
+      return;
+    }
+
+    var replaceMode = importMode==='replace';
     var deletedCount=0;
     if(replaceMode){
       toast('جارٍ حذف السجلات الحالية دفعة واحدة...');
@@ -1680,8 +1769,8 @@ async function importModuleExcel(modId, file, replaceMode){
       toast('جارٍ حفظ '+validRecs.length+' سجل دفعة واحدة...');
       try{
         var created=await dbBulkInsertRecords(modId, validRecs);
-        var store=getStore(modId);
-        for(var c=created.length-1;c>=0;c--) store.unshift(created[c]);
+        var store2=getStore(modId);
+        for(var c=created.length-1;c>=0;c--) store2.unshift(created[c]);
         added=created.length;
         failed=validRecs.length-created.length;
       }catch(errI){
