@@ -414,7 +414,8 @@ var SCHOOL_MODULE = {
     T.num('adminAssistantCount','عدد المساعد/المساعدة الإداري(ة)'),
     T.num('teachersCount','عدد المعلمين'),
     T.num('studentsCount','عدد الطلاب'),
-    T.select('evalLevel','مستوى المدرسة في التقييم', PERF_OPTS),
+    T.select('adminType','إدارة المدرسة',['مستقلة','مشتركة']),
+    T.select('countBasis','احتساب الأعداد في الإحصائيات',['أساسي','مكرر']),
     T.text('principal','قائد المدرسة'),
     T.text('supervisor','المشرف المسؤول'),
     T.text('location','الحي / الموقع'),
@@ -545,7 +546,7 @@ function rowToSchool(row){
     id:row.id, name:row.name, gender:row.gender, stage:row.stage,
     studentsCount: row.students_count!=null?row.students_count:'', teachersCount: row.teachers_count!=null?row.teachers_count:'',
     deputyCount: row.deputy_count!=null?row.deputy_count:'', counselorCount: row.counselor_count!=null?row.counselor_count:'',
-    adminAssistantCount: row.admin_assistant_count!=null?row.admin_assistant_count:'', evalLevel: row.eval_level||'',
+    adminAssistantCount: row.admin_assistant_count!=null?row.admin_assistant_count:'', adminType: row.admin_type||'', countBasis: row.count_basis||'',
     principal: row.principal, supervisor: row.supervisor, location: row.location, notes: row.notes,
     archived: row.archived, source:'قاعدة البيانات', createdAt: row.created_at, updatedAt: row.updated_at, createdBy: row.created_by
   };
@@ -558,7 +559,7 @@ function schoolToRow(data){
     deputy_count: data.deputyCount!==''&&data.deputyCount!=null? parseInt(data.deputyCount,10):null,
     counselor_count: data.counselorCount!==''&&data.counselorCount!=null? parseInt(data.counselorCount,10):null,
     admin_assistant_count: data.adminAssistantCount!==''&&data.adminAssistantCount!=null? parseInt(data.adminAssistantCount,10):null,
-    eval_level: data.evalLevel||null,
+    admin_type: data.adminType||null, count_basis: data.countBasis||null,
     principal:data.principal||null, supervisor:data.supervisor||null, location:data.location||null, notes:data.notes||null
   };
 }
