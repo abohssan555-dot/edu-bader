@@ -163,6 +163,17 @@ details.navgroup[open]>summary:after{transform:rotate(0deg)}
 .report-mode-tab:hover{border-color:var(--primary)}
 .report-mode-tab.active{border-color:var(--primary);background:var(--primary-soft);color:var(--primary-dark)}
 
+.honor-board{background:linear-gradient(160deg,#0D3E33,#145C4B 60%,#1B6B4F);border:none;position:relative;overflow:hidden}
+.honor-board:before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 90% 10%, rgba(201,162,39,.35), transparent 45%)}
+.honor-title{color:#fff;font-family:'Tajawal',sans-serif;font-size:16px;position:relative;margin-bottom:16px}
+.honor-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;position:relative}
+.honor-card{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:14px 16px;backdrop-filter:blur(2px)}
+.honor-rank{color:var(--accent);font-weight:800;font-size:13px;font-family:'Tajawal',sans-serif}
+.honor-name{color:#fff;font-weight:700;font-size:14px;margin:6px 0 3px;line-height:1.4}
+.honor-meta{color:#BFD8CD;font-size:11.5px;margin-bottom:10px}
+.honor-pcts{display:flex;flex-direction:column;gap:4px;font-size:11.5px;color:#EAF3EF}
+.honor-pcts b{color:var(--accent)}
+
 .report-banner{background:linear-gradient(135deg,var(--primary-dark),var(--primary) 75%);color:#fff;padding:26px 30px;border-radius:14px;margin-bottom:22px;position:relative;overflow:hidden}
 .report-banner:before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 85% 15%, rgba(201,162,39,.28), transparent 45%)}
 .rb-eyebrow{color:var(--accent);font-weight:700;font-size:12px;letter-spacing:.5px;position:relative}
@@ -414,6 +425,8 @@ var SCHOOL_MODULE = {
     T.num('adminAssistantCount','عدد المساعد/المساعدة الإداري(ة)'),
     T.num('teachersCount','عدد المعلمين'),
     T.num('studentsCount','عدد الطلاب'),
+    T.num('graduates1447','عدد خريجي الثانوية 1447هـ'),
+    T.num('expectedGraduates1448','المتوقع تخرجهم 1448هـ (ثاني ثانوي حالياً)'),
     T.select('adminType','إدارة المدرسة',['مستقلة','مشتركة']),
     T.select('countBasis','احتساب الأعداد في الإحصائيات',['أساسي','مكرر']),
     T.text('principal','قائد المدرسة'),
@@ -547,6 +560,7 @@ function rowToSchool(row){
     studentsCount: row.students_count!=null?row.students_count:'', teachersCount: row.teachers_count!=null?row.teachers_count:'',
     deputyCount: row.deputy_count!=null?row.deputy_count:'', counselorCount: row.counselor_count!=null?row.counselor_count:'',
     adminAssistantCount: row.admin_assistant_count!=null?row.admin_assistant_count:'', adminType: row.admin_type||'', countBasis: row.count_basis||'',
+    graduates1447: row.graduates_1447!=null?row.graduates_1447:'', expectedGraduates1448: row.expected_graduates_1448!=null?row.expected_graduates_1448:'',
     principal: row.principal, supervisor: row.supervisor, location: row.location, notes: row.notes,
     archived: row.archived, source:'قاعدة البيانات', createdAt: row.created_at, updatedAt: row.updated_at, createdBy: row.created_by
   };
@@ -560,6 +574,8 @@ function schoolToRow(data){
     counselor_count: data.counselorCount!==''&&data.counselorCount!=null? parseInt(data.counselorCount,10):null,
     admin_assistant_count: data.adminAssistantCount!==''&&data.adminAssistantCount!=null? parseInt(data.adminAssistantCount,10):null,
     admin_type: data.adminType||null, count_basis: data.countBasis||null,
+    graduates_1447: data.graduates1447!==''&&data.graduates1447!=null? parseInt(data.graduates1447,10):null,
+    expected_graduates_1448: data.expectedGraduates1448!==''&&data.expectedGraduates1448!=null? parseInt(data.expectedGraduates1448,10):null,
     principal:data.principal||null, supervisor:data.supervisor||null, location:data.location||null, notes:data.notes||null
   };
 }
@@ -982,6 +998,31 @@ function bindContentEvents(){
 }
 
 /* ================= OVERVIEW ================= */
+function renderHonorBoard(){
+  var db=APP.db;
+  var excellent = db.records.filter(function(r){return r.category==='school_performance' && !r.archived && r.currentPerformance==='التميز';});
+  if(!excellent.length) return '';
+  excellent = excellent.slice().sort(function(a,b){
+    var av=parseFloat(a.currentPerformancePct)||0, bv=parseFloat(b.currentPerformancePct)||0;
+    if(bv!==av) return bv-av;
+    return (parseFloat(b.learningOutcomesPct)||0)-(parseFloat(a.learningOutcomesPct)||0);
+  });
+  var html='<div class="panel honor-board">';
+  html+='<h3 class="honor-title">🏆 لوحة الشرف — مدارس فئة التميز (90% فأعلى)</h3>';
+  html+='<div class="honor-grid">';
+  excellent.forEach(function(r, i){
+    var s=db.schools.find(function(x){return x.id===r.schoolId;});
+    html+='<div class="honor-card"><div class="honor-rank">#'+(i+1)+'</div>'+
+      '<div class="honor-name">'+esc(s?s.name:'—')+'</div>'+
+      '<div class="honor-meta">'+esc(r.stage||'')+' · '+esc(r.gender||'')+'</div>'+
+      '<div class="honor-pcts"><span>الأداء العام: <b>'+esc(r.currentPerformancePct||'—')+(r.currentPerformancePct?'%':'')+'</b></span>'+
+      '<span>نواتج التعلم: <b>'+esc(r.learningOutcomesPct||'—')+(r.learningOutcomesPct?'%':'')+'</b></span></div>'+
+    '</div>';
+  });
+  html+='</div></div>';
+  return html;
+}
+
 function renderOverview(){
   var db=APP.db;
   var totalRecords=db.records.filter(function(r){return !r.archived;}).length;
@@ -1011,6 +1052,8 @@ function renderOverview(){
     statCard('روابط نماذج مضافة', linksCount, 'accent')+
     statCard('سجلات مؤرشفة', archivedCount, 'danger')+
   '</div>';
+
+  html+=renderHonorBoard();
 
   html+='<div class="cards-grid" style="grid-template-columns:1.3fr 1fr">';
   html+='<div class="panel"><h3><span class="sq"></span>أعلى الفئات من حيث عدد السجلات</h3>';
@@ -1077,6 +1120,48 @@ function rowPerfBg(v){
   if(!v || v==='لا يوجد') return '#ECEDEA';
   var m={'التميز':'var(--perf-excellent)','التقدم':'var(--perf-advanced)','الانطلاق':'var(--perf-developing)','التهيئة':'var(--perf-initial)'};
   return m[v]||'';
+}
+
+var studentsStatsFilter='current'; // 'current' | 'graduates1447' | 'expected1448'
+function renderStudentsStatsPanel(){
+  var schools=APP.db.schools.filter(function(s){return !s.archived;});
+  var totalM=0, totalF=0, gradM=0, gradF=0, expM=0, expF=0;
+  schools.forEach(function(s){
+    var st=parseFloat(s.studentsCount)||0;
+    var g1447=parseFloat(s.graduates1447)||0;
+    var g1448=parseFloat(s.expectedGraduates1448)||0;
+    if(s.gender==='بنين'){ totalM+=st; gradM+=g1447; expM+=g1448; }
+    else if(s.gender==='بنات'){ totalF+=st; gradF+=g1447; expF+=g1448; }
+  });
+  var html='<div class="panel" style="margin-bottom:16px">';
+  html+='<h3><span class="sq"></span>إحصائية أعداد الطلاب</h3>';
+  html+='<div class="stats-compact-bar">';
+  html+='<span class="stat-chip stat-chip-main">👥 إجمالي الطلاب: <b>'+(totalM+totalF)+'</b></span>';
+  html+='<span class="stat-chip">بنين: <b>'+totalM+'</b></span>';
+  html+='<span class="stat-chip">بنات: <b>'+totalF+'</b></span>';
+  html+='</div>';
+
+  html+='<div class="toolbar" style="margin:14px 0 4px"><span class="small muted">عرض بيانات:</span>';
+  html+='<button class="btn btn-sm '+(studentsStatsFilter==='graduates1447'?'btn-primary':'')+'" data-sfilter="graduates1447">🎓 خريجو 1447هـ (الحاليون)</button>';
+  html+='<button class="btn btn-sm '+(studentsStatsFilter==='expected1448'?'btn-primary':'')+'" data-sfilter="expected1448">📅 المتوقع تخرجهم 1448هـ (ثاني ثانوي حالياً)</button>';
+  html+='</div>';
+
+  if(studentsStatsFilter==='graduates1447'){
+    html+='<div class="stats-compact-bar" style="margin-top:8px">';
+    html+='<span class="stat-chip stat-chip-main">🎓 إجمالي خريجي 1447هـ: <b>'+(gradM+gradF)+'</b></span>';
+    html+='<span class="stat-chip">بنين: <b>'+gradM+'</b></span>';
+    html+='<span class="stat-chip">بنات: <b>'+gradF+'</b></span>';
+    html+='</div>';
+  }else if(studentsStatsFilter==='expected1448'){
+    html+='<div class="stats-compact-bar" style="margin-top:8px">';
+    html+='<span class="stat-chip stat-chip-main">📅 إجمالي المتوقع تخرجهم 1448هـ: <b>'+(expM+expF)+'</b></span>';
+    html+='<span class="stat-chip">بنين: <b>'+expM+'</b></span>';
+    html+='<span class="stat-chip">بنات: <b>'+expF+'</b></span>';
+    html+='</div>';
+  }
+  html+='<div class="small muted" style="margin-top:8px">* هذه الأعداد تُسحب مباشرة من حقول "بيانات المدارس" (عدد الطلاب / خريجو 1447هـ / المتوقع تخرجهم 1448هـ) ولا تحتاج إدخالاً منفصلاً هنا.</div>';
+  html+='</div>';
+  return html;
 }
 
 function renderSchoolsStatsPanel(records){
@@ -1305,6 +1390,9 @@ function renderModuleView(modId){
   if(modId==='schools'){
     html+=renderSchoolsStatsPanel(records);
   }
+  if(modId==='students'){
+    html+=renderStudentsStatsPanel();
+  }
 
   if(modId==='school_performance' && canEdit()){
     html+='<div class="panel" style="padding:12px 16px;margin-bottom:16px;border-inline-start:4px solid var(--accent)">'+
@@ -1360,6 +1448,12 @@ function bindModuleEvents(modId){
   var mod=getModule(modId);
   var input=document.getElementById('modSearch');
   if(input) input.oninput=function(){ moduleSearch[modId]=input.value; render(); setTimeout(function(){var i=document.getElementById('modSearch'); if(i){i.focus(); i.setSelectionRange(i.value.length,i.value.length);}},0); };
+
+  if(modId==='students'){
+    document.querySelectorAll('[data-sfilter]').forEach(function(b){
+      b.onclick=function(){ studentsStatsFilter = (studentsStatsFilter===b.dataset.sfilter)?'current':b.dataset.sfilter; render(); };
+    });
+  }
 
   var filt = moduleFilters[modId] || {gender:'', stage:'', perf:''};
   moduleFilters[modId]=filt;
