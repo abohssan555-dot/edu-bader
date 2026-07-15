@@ -455,6 +455,7 @@ var CATEGORIES = [
     T.school('schoolId','المدرسة'),
     T.select('calType','نوع التقويم',['ذاتي','خارجي']),
     T.date('reviewDate','تاريخ تطبيق التقويم'),
+    T.text('lastUpdateYear','آخر تحديث للتقرير (السنة)'),
     T.num('overallPct','نسبة الأداء العام (رقماً)'),
     T.select('overallLevel','مستوى الأداء العام (نصاً)', PERF_OPTS),
     T.textarea('topStrengths','أبرز نقاط القوة'),
