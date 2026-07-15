@@ -1346,7 +1346,12 @@ function renderModuleView(modId){
   if(q){
     records=records.filter(function(r){
       return mod.fields.some(function(f){
-        var v=r[f.key]; return v!==undefined && String(v).toLowerCase().indexOf(q)>=0;
+        var v=r[f.key];
+        if(f.type==='school'){
+          var s=db.schools.find(function(x){return x.id===v;});
+          v = s ? s.name : '';
+        }
+        return v!==undefined && v!==null && String(v).toLowerCase().indexOf(q)>=0;
       });
     });
   }
@@ -1891,7 +1896,8 @@ async function importModuleExcel(modId, file, importMode){
         var idVal=idField ? String(recFull[idField]||'').trim() : '';
         if(!idVal){ skippedM++; continue; }
         var store=getStore(modId);
-        var existing=store.find(function(s){ return !s.archived && String(s[idField]||'').trim()===idVal; });
+        var searchPool = modId==='schools' ? store : store.filter(function(r){ return r.category===modId; });
+        var existing=searchPool.find(function(s){ return !s.archived && String(s[idField]||'').trim()===idVal; });
         var partial={};
         mod.fields.forEach(function(f){
           var v=recFull[f.key];
