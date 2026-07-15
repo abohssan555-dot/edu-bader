@@ -1839,7 +1839,10 @@ async function importModuleExcel(modId, file, importMode){
 
     /* ---- وضع "تحديث المطابق بالاسم + إضافة الجديد" ---- */
     if(importMode==='merge'){
-      var idField = mod.fields.some(function(f){return f.key==='name';}) ? 'name' : 'title';
+      var hasNameField = mod.fields.some(function(f){return f.key==='name';});
+      var hasTitleField = mod.fields.some(function(f){return f.key==='title';});
+      var schoolField = mod.fields.find(function(f){return f.type==='school';});
+      var idField = hasNameField ? 'name' : (hasTitleField ? 'title' : (schoolField ? schoolField.key : null));
       toast('جارٍ المطابقة والتحديث...');
       var updated=0, addedM=0, skippedM=0, failedM=0, schoolsCreatedM=0;
       for(var mi=0; mi<rows.length; mi++){
@@ -1848,7 +1851,7 @@ async function importModuleExcel(modId, file, importMode){
         var beforeCountM=APP.db.schools.length;
         recFull=await fillMissingSchoolLinks(mod, recFull, rawRow);
         if(APP.db.schools.length>beforeCountM) schoolsCreatedM++;
-        var idVal=String(recFull[idField]||'').trim();
+        var idVal=idField ? String(recFull[idField]||'').trim() : '';
         if(!idVal){ skippedM++; continue; }
         var store=getStore(modId);
         var existing=store.find(function(s){ return !s.archived && String(s[idField]||'').trim()===idVal; });
