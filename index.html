@@ -216,6 +216,7 @@ table.data td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-al
 table.data tr:last-child td{border-bottom:none}
 table.data tr:hover td{background:#FAFBF9}
 .empty-row td{text-align:center;color:var(--muted);padding:34px}
+.num-col{width:38px;text-align:center;color:var(--muted);font-weight:700;font-size:11.5px}
 
 .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700}
 .badge .d{width:6px;height:6px;border-radius:50%}
@@ -1420,14 +1421,16 @@ function renderModuleView(modId){
     : mod.fields;
 
   html+='<div class="table-wrap"><table class="data'+(isCompact?' table-compact':'')+'"><thead><tr>';
+  html+='<th class="num-col">م</th>';
   visibleFields.forEach(function(f){ if(f.type!=='textarea') html+='<th>'+esc(f.label)+'</th>'; });
   html+='<th>مصدر</th><th>إجراءات</th></tr></thead><tbody>';
   if(!sorted.length){
-    html+='<tr class="empty-row"><td colspan="'+(visibleFields.filter(function(f){return f.type!=='textarea';}).length+2)+'">لا توجد سجلات مطابقة — جرّب تعديل الفلاتر أو أضف سجلاً جديداً.</td></tr>';
+    html+='<tr class="empty-row"><td colspan="'+(visibleFields.filter(function(f){return f.type!=='textarea';}).length+3)+'">لا توجد سجلات مطابقة — جرّب تعديل الفلاتر أو أضف سجلاً جديداً.</td></tr>';
   }else{
-    sorted.forEach(function(r){
+    sorted.forEach(function(r, rIdx){
       var rowStyle = (modId==='school_performance') ? ' style="background:'+rowPerfBg(r.currentPerformance)+'"' : '';
       html+='<tr'+rowStyle+'>';
+      html+='<td class="num-col">'+(rIdx+1)+'</td>';
       visibleFields.forEach(function(f){
         if(f.type==='textarea') return;
         var v=r[f.key];
@@ -2079,12 +2082,12 @@ function renderLinksView(){
     ALL_MODULES.map(function(m){return '<option value="'+m.id+'" '+(linksFilterCat===m.id?'selected':'')+'>'+esc(m.label)+'</option>';}).join('')+
     '</select></div>';
 
-  html+='<div class="table-wrap"><table class="data"><thead><tr><th>الفئة</th><th>عنوان الرابط</th><th>الرابط</th><th>النوع</th><th>آخر مزامنة</th><th>إجراءات</th></tr></thead><tbody>';
+  html+='<div class="table-wrap"><table class="data"><thead><tr><th class="num-col">م</th><th>الفئة</th><th>عنوان الرابط</th><th>الرابط</th><th>النوع</th><th>آخر مزامنة</th><th>إجراءات</th></tr></thead><tbody>';
   if(!links.length){
-    html+='<tr class="empty-row"><td colspan="6">لا توجد روابط مضافة بعد.</td></tr>';
+    html+='<tr class="empty-row"><td colspan="7">لا توجد روابط مضافة بعد.</td></tr>';
   }else{
-    links.slice().sort(function(a,b){return new Date(b.createdAt||0)-new Date(a.createdAt||0);}).forEach(function(l){
-      html+='<tr><td>'+esc(moduleLabel(l.category))+'</td><td>'+esc(l.title)+'</td>'+
+    links.slice().sort(function(a,b){return new Date(b.createdAt||0)-new Date(a.createdAt||0);}).forEach(function(l, lIdx){
+      html+='<tr><td class="num-col">'+(lIdx+1)+'</td><td>'+esc(moduleLabel(l.category))+'</td><td>'+esc(l.title)+'</td>'+
         '<td><a class="pill-link" href="'+esc(l.url)+'" target="_blank" rel="noopener"><span class="pl-dot"></span>فتح</a></td>'+
         '<td>'+(l.isSync?'<span class="badge role-editor">مزامنة تلقائية</span>':'<span class="badge role-viewer">تصفح فقط</span>')+'</td>'+
         '<td class="small muted">'+(l.lastSyncedAt?fmtDate(l.lastSyncedAt):'—')+'</td>'+
@@ -2253,9 +2256,9 @@ function renderKpisView(){
   if(!promising.length){
     html+='<div class="muted small">لا توجد مدارس ضمن هذا النطاق حالياً.</div>';
   }else{
-    html+='<div class="table-wrap"><table class="data"><thead><tr><th>المدرسة</th><th>المرحلة</th><th>النوع</th><th>نسبة الأداء العام الحالي</th><th>نسبة نواتج التعلم</th></tr></thead><tbody>';
-    promising.forEach(function(p){
-      html+='<tr><td>'+esc(p.schoolName)+'</td><td>'+esc(p.stage||'—')+'</td><td>'+esc(p.gender||'—')+'</td>'+
+    html+='<div class="table-wrap"><table class="data"><thead><tr><th class="num-col">م</th><th>المدرسة</th><th>المرحلة</th><th>النوع</th><th>نسبة الأداء العام الحالي</th><th>نسبة نواتج التعلم</th></tr></thead><tbody>';
+    promising.forEach(function(p, pIdx){
+      html+='<tr><td class="num-col">'+(pIdx+1)+'</td><td>'+esc(p.schoolName)+'</td><td>'+esc(p.stage||'—')+'</td><td>'+esc(p.gender||'—')+'</td>'+
         '<td>'+(p.currentPerformancePct?esc(p.currentPerformancePct)+'%':'—')+'</td>'+
         '<td>'+(p.learningOutcomesPct?esc(p.learningOutcomesPct)+'%':'—')+'</td></tr>';
     });
@@ -2411,10 +2414,10 @@ function renderGapAnalysisView(){
   if(!a.gapList.length){
     html+='<div class="muted small">لا تتوفر نسب كافية للمقارنة.</div>';
   }else{
-    html+='<div class="table-wrap"><table class="data"><thead><tr><th>المدرسة</th><th>النوع</th><th>الأداء العام</th><th>نواتج التعلم</th><th>الفجوة</th></tr></thead><tbody>';
-    a.gapList.forEach(function(g){
+    html+='<div class="table-wrap"><table class="data"><thead><tr><th class="num-col">م</th><th>المدرسة</th><th>النوع</th><th>الأداء العام</th><th>نواتج التعلم</th><th>الفجوة</th></tr></thead><tbody>';
+    a.gapList.forEach(function(g, gIdx){
       var badgeCls = g.gap>0 ? 'st-progress' : 'st-new';
-      html+='<tr><td>'+esc(g.name)+'</td><td>'+esc(g.gender||'')+'</td><td>'+g.gen+'%</td><td>'+g.lo+'%</td>'+
+      html+='<tr><td class="num-col">'+(gIdx+1)+'</td><td>'+esc(g.name)+'</td><td>'+esc(g.gender||'')+'</td><td>'+g.gen+'%</td><td>'+g.lo+'%</td>'+
         '<td><span class="badge '+badgeCls+'"><span class="d"></span>'+(g.gap>0?'+':'')+g.gap.toFixed(1)+'</span></td></tr>';
     });
     html+='</tbody></table></div>';
@@ -2427,9 +2430,9 @@ function renderGapAnalysisView(){
   if(!a.atRisk.length){
     html+='<div class="muted small">لا توجد مدارس ضمن هذا النطاق حالياً.</div>';
   }else{
-    html+='<div class="table-wrap"><table class="data"><thead><tr><th>المدرسة</th><th>النوع</th><th>النسبة الحالية</th><th>المنطقة الحرجة</th></tr></thead><tbody>';
-    a.atRisk.forEach(function(r){
-      html+='<tr><td>'+esc(r.name)+'</td><td>'+esc(r.gender||'')+'</td><td>'+r.pct+'%</td><td>'+esc(r.zone)+'</td></tr>';
+    html+='<div class="table-wrap"><table class="data"><thead><tr><th class="num-col">م</th><th>المدرسة</th><th>النوع</th><th>النسبة الحالية</th><th>المنطقة الحرجة</th></tr></thead><tbody>';
+    a.atRisk.forEach(function(r, rIdx2){
+      html+='<tr><td class="num-col">'+(rIdx2+1)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.gender||'')+'</td><td>'+r.pct+'%</td><td>'+esc(r.zone)+'</td></tr>';
     });
     html+='</tbody></table></div>';
   }
@@ -2520,12 +2523,12 @@ function renderArchiveView(){
 
   var html='<div class="panel">';
   html+='<div class="toolbar"><label class="small muted">تصفية حسب الفئة:</label><select id="archiveFilterSel" class="search-box">'+options+'</select></div>';
-  html+='<div class="table-wrap"><table class="data"><thead><tr><th>الفئة</th><th>العنوان / الاسم</th><th>تاريخ الأرشفة</th><th>إجراءات</th></tr></thead><tbody>';
+  html+='<div class="table-wrap"><table class="data"><thead><tr><th class="num-col">م</th><th>الفئة</th><th>العنوان / الاسم</th><th>تاريخ الأرشفة</th><th>إجراءات</th></tr></thead><tbody>';
   if(!filtered.length){
-    html+='<tr class="empty-row"><td colspan="4">لا توجد سجلات مؤرشفة.</td></tr>';
+    html+='<tr class="empty-row"><td colspan="5">لا توجد سجلات مؤرشفة.</td></tr>';
   }else{
-    filtered.forEach(function(x){
-      html+='<tr><td>'+esc(moduleLabel(x.modId))+'</td><td>'+esc(recordDisplayTitle(x.rec))+'</td><td>'+fmtDate(x.rec.updatedAt||x.rec.createdAt)+'</td><td class="flexrow">';
+    filtered.forEach(function(x, xIdx){
+      html+='<tr><td class="num-col">'+(xIdx+1)+'</td><td>'+esc(moduleLabel(x.modId))+'</td><td>'+esc(recordDisplayTitle(x.rec))+'</td><td>'+fmtDate(x.rec.updatedAt||x.rec.createdAt)+'</td><td class="flexrow">';
       if(canEdit()) html+='<button class="btn btn-sm" data-restore="'+x.modId+'|'+x.rec.id+'">استعادة</button>';
       if(isAdmin()) html+='<button class="btn btn-sm btn-danger" data-perma="'+x.modId+'|'+x.rec.id+'">حذف نهائي</button>';
       html+='</td></tr>';
@@ -3086,12 +3089,12 @@ function renderUsersView(){
   }
   var users=APP.usersCache;
   var html='<div class="panel">';
-  html+='<div class="table-wrap"><table class="data"><thead><tr><th>الاسم</th><th>البريد الإلكتروني</th><th>الصلاحية</th><th>الحالة</th><th>تاريخ الإنشاء</th><th>إجراءات</th></tr></thead><tbody>';
+  html+='<div class="table-wrap"><table class="data"><thead><tr><th class="num-col">م</th><th>الاسم</th><th>البريد الإلكتروني</th><th>الصلاحية</th><th>الحالة</th><th>تاريخ الإنشاء</th><th>إجراءات</th></tr></thead><tbody>';
   if(!users.length){
-    html+='<tr class="empty-row"><td colspan="6">لا يوجد مستخدمون بعد.</td></tr>';
+    html+='<tr class="empty-row"><td colspan="7">لا يوجد مستخدمون بعد.</td></tr>';
   }
-  users.forEach(function(u){
-    html+='<tr><td>'+esc(u.name)+'</td><td>'+esc(u.username)+'</td>';
+  users.forEach(function(u, uIdx){
+    html+='<tr><td class="num-col">'+(uIdx+1)+'</td><td>'+esc(u.name)+'</td><td>'+esc(u.username)+'</td>';
     html+='<td><select data-role="'+u.id+'" '+(u.id===APP.currentUser.id?'disabled':'')+'>'+
       ['admin','editor','viewer'].map(function(r){return '<option value="'+r+'" '+(r===u.role?'selected':'')+'>'+roleLabel(r)+'</option>';}).join('')+
       '</select></td>';
