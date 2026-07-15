@@ -451,7 +451,18 @@ var CATEGORIES = [
   {id:'school_services', section:'internal', group:'المدارس', label:'احتياجات المدارس من الخدمات', fields:issueFields([T.text('serviceType','نوع الاحتياج')])},
   {id:'transport', section:'internal', group:'المدارس', label:'النقل المدرسي', fields:issueFields([T.text('route','تفاصيل خط النقل')])},
 
-  {id:'calendar', section:'internal', group:null, label:'التقويم المدرسي الذاتي والخارجي', fields:issueFields([T.select('calType','نوع التقويم',['ذاتي','خارجي'])])},
+  {id:'calendar', section:'internal', group:null, label:'التقويم المدرسي الذاتي والخارجي', fields:[
+    T.school('schoolId','المدرسة'),
+    T.select('calType','نوع التقويم',['ذاتي','خارجي']),
+    T.date('reviewDate','تاريخ تطبيق التقويم'),
+    T.num('overallPct','نسبة الأداء العام (رقماً)'),
+    T.select('overallLevel','مستوى الأداء العام (نصاً)', PERF_OPTS),
+    T.textarea('topStrengths','أبرز نقاط القوة'),
+    T.textarea('topImprovements','أبرز جوانب التحسين المطلوبة'),
+    T.textarea('analysisText','التحليل التفصيلي والتوصيات'),
+    T.url('reportLink','رابط أو مرجع التقرير الأصلي'),
+    T.textarea('notes','ملاحظات')
+  ]},
   {id:'tests', section:'internal', group:null, label:'الاختبارات الوطنية والدولية', fields:issueFields([T.text('testName','اسم الاختبار')])},
   {id:'development', section:'internal', group:null, label:'التطوير المهني', fields:issueFields([T.text('program','اسم البرنامج التدريبي')])},
   {id:'other_internal', section:'internal', group:null, label:'قضايا تعليمية أخرى', fields:issueFields()},
@@ -1172,6 +1183,29 @@ function renderStudentsStatsPanel(){
   return html;
 }
 
+function renderCalendarStatsPanel(records){
+  var db=APP.db;
+  var total=records.length;
+  var byType={'ذاتي':0,'خارجي':0};
+  var schoolsWithReport={};
+  var latest=null;
+  records.forEach(function(r){
+    if(byType.hasOwnProperty(r.calType)) byType[r.calType]++;
+    if(r.schoolId) schoolsWithReport[r.schoolId]=true;
+    if(r.reviewDate && (!latest || r.reviewDate>latest)) latest=r.reviewDate;
+  });
+  var distinctSchools=Object.keys(schoolsWithReport).length;
+  var totalSchools=db.schools.filter(function(s){return !s.archived;}).length;
+  var html='<div class="stats-compact-bar">';
+  html+='<span class="stat-chip stat-chip-main">📋 إجمالي تقارير التقويم: <b>'+total+'</b></span>';
+  html+='<span class="stat-chip">ذاتي: <b>'+byType['ذاتي']+'</b></span>';
+  html+='<span class="stat-chip">خارجي: <b>'+byType['خارجي']+'</b></span>';
+  html+='<span class="stat-chip">مدارس لها تقرير مرصود: <b>'+distinctSchools+'</b> من أصل '+totalSchools+'</span>';
+  if(latest) html+='<span class="stat-chip">أحدث تقويم مُسجَّل: <b>'+fmtDate(latest)+'</b></span>';
+  html+='</div>';
+  return html;
+}
+
 function renderSchoolsStatsPanel(records){
   var total=records.length;
   var byStage={'رياض أطفال':0,'ابتدائي':0,'متوسط':0,'ثانوي':0,'متعدد المراحل':0};
@@ -1400,6 +1434,9 @@ function renderModuleView(modId){
   }
   if(modId==='students'){
     html+=renderStudentsStatsPanel();
+  }
+  if(modId==='calendar'){
+    html+=renderCalendarStatsPanel(records);
   }
 
   if(modId==='school_performance' && canEdit()){
