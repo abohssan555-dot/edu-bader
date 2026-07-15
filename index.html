@@ -476,6 +476,9 @@ var CATEGORIES = [
     T.num('currentPerformancePct','نسبة الأداء العام الحالي (رقماً)'),
     T.select('learningOutcomesLevel','مستوى مجال نواتج التعلم (نصاً)',PERF_OPTS),
     T.num('learningOutcomesPct','نسبة مجال نواتج التعلم (رقماً)'),
+    T.num('adminDomainPct','نسبة مجال الإدارة المدرسية (رقماً)'),
+    T.num('teachingDomainPct','نسبة مجال التعليم والتعلم (رقماً)'),
+    T.num('environmentDomainPct','نسبة مجال البيئة المدرسية (رقماً)'),
     T.select('receivesSupport','المدرسة تتلقى الدعم',['نعم','لا']),
     T.text('supporter1Name','اسم مقدم خدمة الدعم الأول'),
     T.text('supporter1Id','رقم السجل المدني - مقدم الدعم الأول'),
@@ -536,7 +539,8 @@ var NAV = [
     {type:'link', id:'other_shared'}
   ]},
   {type:'section', label:'المؤشرات التنفيذية', children:[
-    {type:'link', id:'kpis', label:'مؤشرات الأداء (KPIs)'}
+    {type:'link', id:'kpis', label:'مؤشرات الأداء (KPIs)'},
+    {type:'link', id:'gap_analysis', label:'تحليل الأداء ورصد الفجوات'}
   ]},
   {type:'section', label:'أدوات النظام', children:[
     {type:'link', id:'links', label:'روابط النماذج والمصادر'},
@@ -910,7 +914,7 @@ function renderNav(){
 
 function currentTitle(){
   var v=APP.view.id;
-  var map={overview:'نظرة عامة', schools:'قاعدة البيانات الأساسية', links:'روابط النماذج والمصادر', kpis:'مؤشرات الأداء التنفيذية (KPIs)', archive:'الأرشيف', reports:'التقارير', users:'إدارة المستخدمين'};
+  var map={overview:'نظرة عامة', schools:'قاعدة البيانات الأساسية', links:'روابط النماذج والمصادر', kpis:'مؤشرات الأداء التنفيذية (KPIs)', gap_analysis:'تحليل الأداء ورصد الفجوات', archive:'الأرشيف', reports:'التقارير', users:'إدارة المستخدمين'};
   if(map[v]) return map[v];
   return moduleLabel(v);
 }
@@ -978,6 +982,7 @@ function renderContent(){
   if(v==='overview') return renderOverview();
   if(v==='links') return renderLinksView();
   if(v==='kpis') return renderKpisView();
+  if(v==='gap_analysis') return renderGapAnalysisView();
   if(v==='archive') return renderArchiveView();
   if(v==='reports') return renderReportsView();
   if(v==='users') return isAdmin()? renderUsersView() : '<div class="panel">لا تملك صلاحية الوصول لهذه الصفحة.</div>';
@@ -990,6 +995,7 @@ function bindContentEvents(){
   if(v==='overview') return;
   if(v==='links') return bindLinksEvents();
   if(v==='kpis') return bindKpisEvents();
+  if(v==='gap_analysis') return;
   if(v==='archive') return bindArchiveEvents();
   if(v==='reports') return bindReportsEvents();
   if(v==='users') return bindUsersEvents();
@@ -1092,6 +1098,7 @@ function statCard(label,num,cls){
 
 /* ================= GENERIC MODULE (schools + categories) ================= */
 var moduleSearch={}; // per-module search text
+var coreDomainsOnly=false; // خاص بشاشة الأداء المدرسي: عرض المجالين الأساسيين فقط
 
 function recordDisplayTitle(rec, mod){
   if(rec.title) return rec.title;
@@ -1401,16 +1408,27 @@ function renderModuleView(modId){
       'استخدمه في كل مرة يصلك فيها ملف محدّث بنفس النموذج.</div></div>';
   }
 
+  var HIDDEN_IN_CORE_VIEW = ['adminDomainPct','teachingDomainPct','environmentDomainPct'];
+  if(modId==='school_performance'){
+    html+='<div class="toolbar" style="margin-bottom:10px">';
+    html+='<button class="btn btn-sm '+(coreDomainsOnly?'btn-primary':'')+'" id="btnCoreDomainsToggle">🎯 المجالين الأساسيين فقط (الأداء العام ونواتج التعلم)</button>';
+    html+='<span class="small muted">'+(coreDomainsOnly?'يتم إخفاء مجالات الإدارة والتعليم والتعلم والبيئة المدرسية (خارج نطاق عمل الفريق التنفيذي).':'')+'</span>';
+    html+='</div>';
+  }
+  var visibleFields = (modId==='school_performance' && coreDomainsOnly)
+    ? mod.fields.filter(function(f){ return HIDDEN_IN_CORE_VIEW.indexOf(f.key)<0; })
+    : mod.fields;
+
   html+='<div class="table-wrap"><table class="data'+(isCompact?' table-compact':'')+'"><thead><tr>';
-  mod.fields.forEach(function(f){ if(f.type!=='textarea') html+='<th>'+esc(f.label)+'</th>'; });
+  visibleFields.forEach(function(f){ if(f.type!=='textarea') html+='<th>'+esc(f.label)+'</th>'; });
   html+='<th>مصدر</th><th>إجراءات</th></tr></thead><tbody>';
   if(!sorted.length){
-    html+='<tr class="empty-row"><td colspan="'+(mod.fields.filter(function(f){return f.type!=='textarea';}).length+2)+'">لا توجد سجلات مطابقة — جرّب تعديل الفلاتر أو أضف سجلاً جديداً.</td></tr>';
+    html+='<tr class="empty-row"><td colspan="'+(visibleFields.filter(function(f){return f.type!=='textarea';}).length+2)+'">لا توجد سجلات مطابقة — جرّب تعديل الفلاتر أو أضف سجلاً جديداً.</td></tr>';
   }else{
     sorted.forEach(function(r){
       var rowStyle = (modId==='school_performance') ? ' style="background:'+rowPerfBg(r.currentPerformance)+'"' : '';
       html+='<tr'+rowStyle+'>';
-      mod.fields.forEach(function(f){
+      visibleFields.forEach(function(f){
         if(f.type==='textarea') return;
         var v=r[f.key];
         if(f.type==='school'){
@@ -1453,6 +1471,10 @@ function bindModuleEvents(modId){
     document.querySelectorAll('[data-sfilter]').forEach(function(b){
       b.onclick=function(){ studentsStatsFilter = (studentsStatsFilter===b.dataset.sfilter)?'current':b.dataset.sfilter; render(); };
     });
+  }
+  if(modId==='school_performance'){
+    var coreBtn=document.getElementById('btnCoreDomainsToggle');
+    if(coreBtn) coreBtn.onclick=function(){ coreDomainsOnly=!coreDomainsOnly; render(); };
   }
 
   var filt = moduleFilters[modId] || {gender:'', stage:'', perf:''};
@@ -1622,10 +1644,14 @@ function downloadTemplate(modId){
 function exportModuleExcel(modId){
   var mod=getModule(modId);
   var db=APP.db;
+  var HIDDEN_IN_CORE_VIEW = ['adminDomainPct','teachingDomainPct','environmentDomainPct'];
+  var exportFields = (modId==='school_performance' && coreDomainsOnly)
+    ? mod.fields.filter(function(f){ return HIDDEN_IN_CORE_VIEW.indexOf(f.key)<0; })
+    : mod.fields;
   var records = modId==='schools' ? db.schools : db.records.filter(function(r){return r.category===modId;});
   var rows=records.map(function(r){
     var o={};
-    mod.fields.forEach(function(f){
+    exportFields.forEach(function(f){
       var v=r[f.key];
       if(f.type==='school'){ var s=db.schools.find(function(x){return x.id===v;}); v=s?s.name:''; }
       o[f.label]=v||'';
@@ -1636,7 +1662,7 @@ function exportModuleExcel(modId){
   var ws=XLSX.utils.json_to_sheet(rows);
   var wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, mod.label.slice(0,28));
-  XLSX.writeFile(wb, mod.label+'.xlsx');
+  XLSX.writeFile(wb, mod.label+(coreDomainsOnly&&modId==='school_performance'?'-مجالان أساسيان':'')+'.xlsx');
   toast('تم تصدير الملف');
 }
 
@@ -2296,6 +2322,136 @@ function bindKpisEvents(){
       render();
     }catch(err){ toast('تعذر حفظ اللقطة: '+(err&&err.message?err.message:''), true); snapBtn.disabled=false; }
   };
+}
+
+/* ================= تحليل الأداء ورصد الفجوات ================= */
+function computeGapAnalysis(){
+  var db=APP.db;
+  var perf=db.records.filter(function(r){return r.category==='school_performance' && !r.archived;});
+  var PERF_ORDER=['التميز','التقدم','الانطلاق','التهيئة'];
+
+  /* 1) التوزيع الكامل حسب الفئة والنوع */
+  var byCategoryGender={};
+  PERF_ORDER.forEach(function(c){ byCategoryGender[c]={'بنين':0,'بنات':0}; });
+  var noReport={'بنين':0,'بنات':0};
+  perf.forEach(function(r){
+    var cat = PERF_ORDER.indexOf(r.currentPerformance)>=0 ? r.currentPerformance : null;
+    var g = (r.gender==='بنين'||r.gender==='بنات') ? r.gender : null;
+    if(!g) return;
+    if(cat) byCategoryGender[cat][g]++;
+    else noReport[g]++;
+  });
+
+  /* 2) أكبر الفجوات بين الأداء العام ونواتج التعلم لكل مدرسة */
+  var gapList=perf.map(function(r){
+    var s=db.schools.find(function(x){return x.id===r.schoolId;});
+    var gen=parseFloat(r.currentPerformancePct), lo=parseFloat(r.learningOutcomesPct);
+    if(isNaN(gen)||isNaN(lo)) return null;
+    return {name:s?s.name:'—', gender:r.gender, stage:r.stage, gen:gen, lo:lo, gap:gen-lo};
+  }).filter(Boolean).sort(function(a,b){ return Math.abs(b.gap)-Math.abs(a.gap); }).slice(0,10);
+
+  /* 3) مدارس مهدَّدة بالتراجع (قريبة من الحد الأدنى لفئتها) */
+  var atRisk=[];
+  perf.forEach(function(r){
+    var pct=parseFloat(r.currentPerformancePct);
+    if(isNaN(pct)) return;
+    var threshold=null;
+    if(r.currentPerformance==='التميز' && pct<93) threshold='التميز (قريبة من حد 90%)';
+    else if(r.currentPerformance==='التقدم' && pct<=82) threshold='التقدم (قريبة من الانطلاق)';
+    else if(r.currentPerformance==='الانطلاق' && pct<=72) threshold='الانطلاق (قريبة من التهيئة)';
+    if(threshold){
+      var s=db.schools.find(function(x){return x.id===r.schoolId;});
+      atRisk.push({name:s?s.name:'—', gender:r.gender, pct:pct, zone:threshold});
+    }
+  });
+  atRisk.sort(function(a,b){return a.pct-b.pct;});
+
+  /* 4) ربط الشواغر الإدارية بالأداء */
+  var vacancyByLevel={};
+  PERF_ORDER.concat(['لا يوجد']).forEach(function(c){ vacancyByLevel[c]={total:0, vacantDeputy:0, vacantCounselor:0}; });
+  perf.forEach(function(r){
+    var s=db.schools.find(function(x){return x.id===r.schoolId;});
+    if(!s) return;
+    var cat = PERF_ORDER.indexOf(r.currentPerformance)>=0 ? r.currentPerformance : 'لا يوجد';
+    vacancyByLevel[cat].total++;
+    var dep=parseFloat(s.deputyCount), cou=parseFloat(s.counselorCount);
+    if(!dep || dep===0) vacancyByLevel[cat].vacantDeputy++;
+    if(!cou || cou===0) vacancyByLevel[cat].vacantCounselor++;
+  });
+
+  return {byCategoryGender:byCategoryGender, noReport:noReport, gapList:gapList, atRisk:atRisk, vacancyByLevel:vacancyByLevel, PERF_ORDER:PERF_ORDER, total:perf.length};
+}
+
+function renderGapAnalysisView(){
+  var a=computeGapAnalysis();
+  if(!a.total){
+    return '<div class="panel">لا توجد بيانات كافية في "الأداء المدرسي" لإجراء التحليل بعد.</div>';
+  }
+  var html='';
+  var colorsMap={'التميز':'#1D7A3C','التقدم':'#1C5FA8','الانطلاق':'#9A5A0A','التهيئة':'#B32E24'};
+
+  /* التوزيع حسب الفئة والنوع */
+  html+='<div class="panel">';
+  html+='<h3><span class="sq"></span>التوزيع الكامل حسب فئة الأداء والنوع</h3>';
+  var maxCount=1;
+  a.PERF_ORDER.forEach(function(cat){ maxCount=Math.max(maxCount, a.byCategoryGender[cat].بنين, a.byCategoryGender[cat].بنات); });
+  a.PERF_ORDER.forEach(function(cat){
+    var m=a.byCategoryGender[cat].بنين, f=a.byCategoryGender[cat].بنات;
+    html+='<div class="bar-row"><div class="bl">'+esc(cat)+' - بنين</div><div class="bar-track"><div class="bar-fill" style="width:'+(m/maxCount*100)+'%;background:'+colorsMap[cat]+'"></div></div><div class="bn">'+m+'</div></div>';
+    html+='<div class="bar-row"><div class="bl">'+esc(cat)+' - بنات</div><div class="bar-track"><div class="bar-fill" style="width:'+(f/maxCount*100)+'%;background:'+colorsMap[cat]+'"></div></div><div class="bn">'+f+'</div></div>';
+  });
+  html+='<div class="stats-compact-bar" style="margin-top:10px">';
+  html+='<span class="perf-pill pf-none"><span class="d"></span>لا يوجد تقرير: بنين '+a.noReport.بنين+' / بنات '+a.noReport.بنات+'</span>';
+  html+='</div></div>';
+
+  /* أكبر الفجوات */
+  html+='<div class="panel">';
+  html+='<h3><span class="sq"></span>أكبر الفجوات بين الأداء العام ونواتج التعلم (أعلى 10 مدارس)</h3>';
+  html+='<div class="small muted" style="margin-bottom:10px">فجوة موجبة = الأداء العام أعلى من نواتج التعلم (إنجاز شكلي دون تعلم فعلي كافٍ) — فجوة سالبة = العكس.</div>';
+  if(!a.gapList.length){
+    html+='<div class="muted small">لا تتوفر نسب كافية للمقارنة.</div>';
+  }else{
+    html+='<div class="table-wrap"><table class="data"><thead><tr><th>المدرسة</th><th>النوع</th><th>الأداء العام</th><th>نواتج التعلم</th><th>الفجوة</th></tr></thead><tbody>';
+    a.gapList.forEach(function(g){
+      var badgeCls = g.gap>0 ? 'st-progress' : 'st-new';
+      html+='<tr><td>'+esc(g.name)+'</td><td>'+esc(g.gender||'')+'</td><td>'+g.gen+'%</td><td>'+g.lo+'%</td>'+
+        '<td><span class="badge '+badgeCls+'"><span class="d"></span>'+(g.gap>0?'+':'')+g.gap.toFixed(1)+'</span></td></tr>';
+    });
+    html+='</tbody></table></div>';
+  }
+  html+='</div>';
+
+  /* مدارس مهددة بالتراجع */
+  html+='<div class="panel">';
+  html+='<h3><span class="sq"></span>⚠️ مدارس قريبة من حدود فئتها (مرشّحة للتراجع دون تدخل)</h3>';
+  if(!a.atRisk.length){
+    html+='<div class="muted small">لا توجد مدارس ضمن هذا النطاق حالياً.</div>';
+  }else{
+    html+='<div class="table-wrap"><table class="data"><thead><tr><th>المدرسة</th><th>النوع</th><th>النسبة الحالية</th><th>المنطقة الحرجة</th></tr></thead><tbody>';
+    a.atRisk.forEach(function(r){
+      html+='<tr><td>'+esc(r.name)+'</td><td>'+esc(r.gender||'')+'</td><td>'+r.pct+'%</td><td>'+esc(r.zone)+'</td></tr>';
+    });
+    html+='</tbody></table></div>';
+  }
+  html+='<div class="small muted" style="margin-top:8px">* الحدود تقريبية بناءً على أقرب فئة أدنى، وليست حدوداً رسمية معلنة من هيئة التقويم.</div>';
+  html+='</div>';
+
+  /* ربط الشواغر بالأداء */
+  html+='<div class="panel">';
+  html+='<h3><span class="sq"></span>العلاقة بين الشواغر الإدارية ومستوى الأداء</h3>';
+  html+='<div class="table-wrap"><table class="data"><thead><tr><th>الفئة</th><th>عدد المدارس</th><th>شاغرة من وكيل</th><th>شاغرة من موجّه</th></tr></thead><tbody>';
+  a.PERF_ORDER.concat(['لا يوجد']).forEach(function(cat){
+    var v=a.vacancyByLevel[cat];
+    if(!v.total) return;
+    html+='<tr><td>'+esc(cat)+'</td><td>'+v.total+'</td>'+
+      '<td>'+v.vacantDeputy+' ('+(v.total?(v.vacantDeputy/v.total*100).toFixed(0):0)+'%)</td>'+
+      '<td>'+v.vacantCounselor+' ('+(v.total?(v.vacantCounselor/v.total*100).toFixed(0):0)+'%)</td></tr>';
+  });
+  html+='</tbody></table></div>';
+  html+='<div class="small muted" style="margin-top:8px">* يعتمد على حقلي "عدد الوكيل/الوكيلة" و"عدد الموجه/الموجهة" في "بيانات المدارس" — دقّة هذا التحليل مرتبطة بمدى اكتمال تلك الحقول.</div>';
+  html+='</div>';
+
+  return html;
 }
 
 async function syncLinkNow(link, btn){
