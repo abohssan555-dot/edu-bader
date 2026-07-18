@@ -1029,8 +1029,10 @@ function renderScreenExportToolbar(){
   var html='<div class="panel screen-export-panel">';
   html+='<div class="flexrow" style="justify-content:space-between"><h3><span class="sq"></span>إعداد تقرير من هذه الشاشة</h3>'+
     '<button type="button" class="btn btn-sm" id="btnToggleReportBuilder">'+(reportBuilderOpen?'إخفاء إعدادات التقرير ▲':'⚙️ قسم اعتماد التقرير ▼')+'</button></div>';
-  html+='<div class="field" style="margin-top:10px"><label class="small muted">عنوان التقرير الظاهر في رأس الصفحة (قابل للتعديل)</label>'+
-    '<input type="text" id="reportHeaderTitleInput" value="'+esc(currentReportHeaderTitle())+'"></div>';
+  html+='<div class="field" style="margin-top:10px"><label class="small muted">القسم/الجهة المختصة (يظهر أسفل الاسم الثابت في رأس الصفحة)</label>'+
+    '<input type="text" id="reportHeaderDeptInput" value="'+esc(currentReportHeaderDept())+'"></div>';
+  html+='<div class="field" style="margin-top:8px"><label class="small muted">عنوان التقرير (يظهر داخل التقرير، وسط الصفحة)</label>'+
+    '<input type="text" id="reportBodyTitleInput" value="'+esc(currentReportBodyTitle())+'"></div>';
   if(reportBuilderOpen){
     ensureReportBuilderInit();
     html+='<div class="report-builder">';
@@ -1066,8 +1068,10 @@ function bindScreenExportToolbar(){
   var tb=document.getElementById('btnToggleReportBuilder');
   if(tb) tb.onclick=function(){ reportBuilderOpen=!reportBuilderOpen; render(); };
 
-  var titleInp=document.getElementById('reportHeaderTitleInput');
-  if(titleInp) titleInp.oninput=function(){ reportHeaderTitle=titleInp.value; reportHeaderTitleScreenId=APP.view.id; };
+  var deptInp=document.getElementById('reportHeaderDeptInput');
+  if(deptInp) deptInp.oninput=function(){ reportHeaderDept=deptInp.value; reportHeaderDeptScreenId=APP.view.id; };
+  var bodyTitleInp=document.getElementById('reportBodyTitleInput');
+  if(bodyTitleInp) bodyTitleInp.oninput=function(){ reportBodyTitle=bodyTitleInp.value; reportBodyTitleScreenId=APP.view.id; };
 
   document.querySelectorAll('[data-rbtoggle]').forEach(function(cb){
     cb.onchange=function(){ reportBuilderItems[+cb.dataset.rbtoggle].include=cb.checked; };
@@ -1108,41 +1112,57 @@ function screenTitleForExport(){
   return (currentTitle()||'تقرير')+' — إدارة التعليم بمحافظة بدر';
 }
 /* ---------------- عناصر القالب الرسمي (رأس/تذييل/شعار) ---------------- */
-var reportHeaderTitle=null;
-var reportHeaderTitleScreenId=null;
-function currentReportHeaderTitle(){
-  if(reportHeaderTitle===null || reportHeaderTitleScreenId!==APP.view.id){
-    reportHeaderTitle = currentTitle()||'تقرير';
-    reportHeaderTitleScreenId = APP.view.id;
+var reportHeaderDept=null;
+var reportHeaderDeptScreenId=null;
+function currentReportHeaderDept(){
+  if(reportHeaderDept===null || reportHeaderDeptScreenId!==APP.view.id){
+    reportHeaderDept = 'مشرف قطاع بدر';
+    reportHeaderDeptScreenId = APP.view.id;
   }
-  return reportHeaderTitle;
+  return reportHeaderDept;
+}
+var reportBodyTitle=null;
+var reportBodyTitleScreenId=null;
+function currentReportBodyTitle(){
+  if(reportBodyTitle===null || reportBodyTitleScreenId!==APP.view.id){
+    reportBodyTitle = currentTitle()||'تقرير';
+    reportBodyTitleScreenId = APP.view.id;
+  }
+  return reportBodyTitle;
 }
 function moeHeaderNode(widthPx){
   var h=document.createElement('div');
   var ratio=319/1400*0.62;
-  h.style.cssText='position:relative;width:'+widthPx+'px;height:'+Math.round(widthPx*ratio)+'px;background-image:url('+MOE_HEADER_IMG+');background-size:100% 100%;background-repeat:no-repeat;overflow:hidden';
-  var flexRow=document.createElement('div');
-  flexRow.style.cssText='position:absolute;inset:0;display:flex;flex-direction:row-reverse;align-items:center;padding:0 '+Math.round(widthPx*0.035)+'px;box-sizing:border-box;gap:'+Math.round(widthPx*0.03)+'px';
+  h.style.cssText='position:relative;width:'+widthPx+'px;height:'+Math.round(widthPx*ratio)+'px;background-image:url('+MOE_HEADER_IMG+');background-size:100% 100%;background-repeat:no-repeat;overflow:hidden;display:flex;align-items:center;justify-content:center';
+  var group=document.createElement('div');
+  group.style.cssText='display:flex;flex-direction:row-reverse;align-items:center;gap:'+Math.round(widthPx*0.025)+'px';
   var logo=document.createElement('img');
   logo.src=MOE_LOGO_IMG;
-  logo.style.cssText='height:44%;flex-shrink:0';
+  logo.style.cssText='height:'+Math.round(widthPx*ratio*0.5)+'px;flex-shrink:0';
   var textBox=document.createElement('div');
-  textBox.style.cssText='text-align:right;flex:1;min-width:0;overflow:hidden';
+  textBox.style.cssText='text-align:right;white-space:nowrap';
   textBox.innerHTML=
-    '<div style="color:#fff;font-family:Cairo,sans-serif;font-size:'+Math.round(widthPx*0.0095)+'px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">الإدارة العامة للتعليم بمنطقة المدينة المنورة</div>'+
-    '<div style="color:#fff;font-family:Tajawal,Cairo,sans-serif;font-size:'+Math.round(widthPx*0.015)+'px;font-weight:800;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(currentReportHeaderTitle())+'</div>';
-  flexRow.appendChild(logo);
-  flexRow.appendChild(textBox);
-  h.appendChild(flexRow);
+    '<div style="color:#fff;font-family:Tajawal,Cairo,sans-serif;font-size:'+Math.round(widthPx*0.0125)+'px;font-weight:800">الإدارة العامة للتعليم بمنطقة المدينة المنورة</div>'+
+    '<div style="color:#fff;font-family:Cairo,sans-serif;font-size:'+Math.round(widthPx*0.011)+'px;margin-top:4px;opacity:.95">'+esc(currentReportHeaderDept())+'</div>';
+  group.appendChild(logo);
+  group.appendChild(textBox);
+  h.appendChild(group);
   return h;
+}
+function reportBodyTitleNode(widthPx){
+  var box=document.createElement('div');
+  box.style.cssText='width:'+widthPx+'px;padding:16px 22px 4px;text-align:center;direction:rtl;font-family:Cairo,Arial,sans-serif;background:#fff';
+  box.innerHTML='<div style="font-family:Tajawal,Cairo,sans-serif;font-size:19px;font-weight:800;color:#0C7A78">'+esc(currentReportBodyTitle())+'</div>'+
+    '<div style="width:60px;height:3px;background:#10A9A6;margin:8px auto 0;border-radius:2px"></div>';
+  return box;
 }
 function moeFooterNode(widthPx, pageLabel){
   var f=document.createElement('div');
   var ratio=190/1400*0.55;
   f.style.cssText='position:relative;width:'+widthPx+'px;height:'+Math.round(widthPx*ratio)+'px;background-image:url('+MOE_FOOTER_IMG+');background-size:100% 100%;background-repeat:no-repeat';
   var lbl=document.createElement('div');
-  lbl.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-family:Cairo,sans-serif;font-size:'+Math.round(widthPx*0.0085)+'px';
-  lbl.textContent=pageLabel||'نظام متابعة التعليم — محافظة بدر';
+  lbl.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-family:Cairo,sans-serif;font-size:'+Math.round(widthPx*0.0095)+'px;direction:ltr';
+  lbl.textContent=pageLabel||'sites.moe.gov.sa/madinah';
   f.appendChild(lbl);
   return f;
 }
@@ -1160,12 +1180,21 @@ function captureNodeAsCanvas(node){
 function reportContentStyleOverride(){
   var s=document.createElement('style');
   s.textContent=
-    'h3{color:#0CA868 !important} .sq{background:#10A9A6 !important}'+
+    'h3{color:#0CA868 !important;font-size:17px !important}'+
+    '.sq{background:#10A9A6 !important}'+
     '.stat-chip-main{background:#E7F7F5 !important;color:#0CA868 !important}'+
     '.honor-board{background:linear-gradient(135deg,#0C7A78,#10A9A6 60%,#38987F) !important}'+
     '.overview-hero{background:linear-gradient(120deg,#0C7A78,#10A9A6 55%,#38987F 100%) !important}'+
-    '.hs-num{color:#0CA868 !important}'+
-    '.badge.st-progress, .perf-pill{background:#E7F7F5 !important;color:#0CA868 !important}';
+    '.hs-num{color:#0CA868 !important;font-size:24px !important}'+
+    '.hs-label{font-size:13px !important}'+
+    '.badge.st-progress, .perf-pill{background:#E7F7F5 !important;color:#0CA868 !important}'+
+    'table.data{font-size:14px !important}'+
+    'table.data th, table.data td{font-size:14px !important;padding:8px 10px !important}'+
+    '.small{font-size:13px !important}'+
+    '.stat-chip{font-size:13.5px !important}'+
+    '.honor-name{font-size:12.5px !important}'+
+    '.honor-meta, .honor-pcts{font-size:11px !important}'+
+    '.bar-row .bl, .bar-row .bn{font-size:13.5px !important}';
   return s;
 }
 /* يبني قائمة عُقَد DOM منفصلة، عُقدة لكل جزء مُدرَج في التقرير (بلا رأس/تذييل) */
@@ -1219,7 +1248,7 @@ function getReportContentNodes(widthPx){
 function captureAllReportPieces(widthPx){
   var header=moeHeaderNode(widthPx);
   var footer=moeFooterNode(widthPx);
-  var contentNodes=getReportContentNodes(widthPx);
+  var contentNodes=[reportBodyTitleNode(widthPx)].concat(getReportContentNodes(widthPx));
   var chain=captureNodeAsCanvas(header).then(function(hc){ return {header:hc}; });
   chain=chain.then(function(acc){ return captureNodeAsCanvas(footer).then(function(fc){ acc.footer=fc; return acc; }); });
   contentNodes.forEach(function(node, i){
