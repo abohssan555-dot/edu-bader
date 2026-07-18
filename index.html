@@ -1288,6 +1288,7 @@ function splitOversizedTableNode(node){
       if(styleTag) clone.appendChild(styleTag);
       clone.appendChild(tableWrap);
     }
+    clone.setAttribute('data-atomic','1');
     chunks.push(clone);
   }
   return chunks;
@@ -1321,10 +1322,11 @@ function captureAllReportPieces(widthPx){
   var contentNodes=[reportBodyTitleNode(widthPx)].concat(getReportContentNodes(widthPx)).concat([approvalBlockNode(widthPx)]);
   var chain=captureNodeAsCanvas(header).then(function(hc){ return {header:hc}; });
   chain=chain.then(function(acc){ return captureNodeAsCanvas(footer).then(function(fc){ acc.footer=fc; return acc; }); });
-  contentNodes.forEach(function(node, i){
+  contentNodes.forEach(function(node){
+    var isAtomic = node.getAttribute && node.getAttribute('data-atomic')==='1';
     chain=chain.then(function(acc){
       return captureNodeAsCanvas(node).then(function(c){
-        acc.blocks=acc.blocks||[]; acc.blocks.push(c); return acc;
+        acc.blocks=acc.blocks||[]; acc.blocks.push({canvas:c, atomic:isAtomic}); return acc;
       });
     });
   });
@@ -1349,23 +1351,56 @@ function exportScreenPdf(){
     }
     drawHeaderFooter();
     var cursorY=contentTop;
-    (acc.blocks||[]).forEach(function(canvas){
+
+    function cropCanvas(src, startPx, hPx){
+      var c=document.createElement('canvas');
+      c.width=src.width; c.height=hPx;
+      c.getContext('2d').drawImage(src, 0, startPx, src.width, hPx, 0, 0, src.width, hPx);
+      return c;
+    }
+
+    (acc.blocks||[]).forEach(function(item){
+      var canvas=item.canvas;
       var imgH=contentW*(canvas.height/canvas.width);
-      if(imgH>usableH){
-        // جزء أطول من صفحة كاملة بالعرض الكامل: يوضع في صفحة خاصة به ويُصغَّر ليتناسب مع ارتفاع الصفحة
-        if(cursorY>contentTop){ pdf.addPage(); drawHeaderFooter(); cursorY=contentTop; }
-        var scale=usableH/imgH;
-        var fitW=contentW*scale, fitH=usableH;
-        var xOffset=sideMargin+(contentW-fitW)/2;
-        pdf.addImage(canvas.toDataURL('image/png'),'PNG',xOffset,contentTop,fitW,fitH);
-        pdf.addPage(); drawHeaderFooter(); cursorY=contentTop;
+
+      if(item.atomic){
+        if(imgH>usableH){
+          if(cursorY>contentTop){ pdf.addPage(); drawHeaderFooter(); cursorY=contentTop; }
+          var scale=usableH/imgH;
+          var fitW=contentW*scale, fitH=usableH;
+          var xOffset=sideMargin+(contentW-fitW)/2;
+          pdf.addImage(canvas.toDataURL('image/png'),'PNG',xOffset,contentTop,fitW,fitH);
+          pdf.addPage(); drawHeaderFooter(); cursorY=contentTop;
+          return;
+        }
+        if(cursorY+imgH>contentBottom){ pdf.addPage(); drawHeaderFooter(); cursorY=contentTop; }
+        pdf.addImage(canvas.toDataURL('image/png'),'PNG',sideMargin,cursorY,contentW,imgH);
+        cursorY+=imgH+gap;
         return;
       }
-      if(cursorY+imgH>contentBottom){
-        pdf.addPage(); drawHeaderFooter(); cursorY=contentTop;
+
+      // غير محمي (ليس جزء جدول): يُسمح بتقسيمه فعلياً عند حد الصفحة لتفادي هدر مساحة كبيرة
+      var remaining=canvas;
+      while(remaining){
+        var availableH=contentBottom-cursorY;
+        var remH=contentW*(remaining.height/remaining.width);
+        if(remH<=availableH){
+          pdf.addImage(remaining.toDataURL('image/png'),'PNG',sideMargin,cursorY,contentW,remH);
+          cursorY+=remH+gap;
+          remaining=null;
+        }else if(availableH<15){
+          // لا مساحة كافية لبدء أي جزء مفيد في هذه الصفحة
+          pdf.addPage(); drawHeaderFooter(); cursorY=contentTop;
+        }else{
+          var pxPerMM=remaining.width/contentW;
+          var fitPx=Math.floor(availableH*pxPerMM);
+          var topPart=cropCanvas(remaining, 0, fitPx);
+          pdf.addImage(topPart.toDataURL('image/png'),'PNG',sideMargin,cursorY,contentW,availableH);
+          var restPx=remaining.height-fitPx;
+          remaining = restPx>0 ? cropCanvas(remaining, fitPx, restPx) : null;
+          pdf.addPage(); drawHeaderFooter(); cursorY=contentTop;
+        }
       }
-      pdf.addImage(canvas.toDataURL('image/png'),'PNG',sideMargin,cursorY,contentW,imgH);
-      cursorY+=imgH+gap;
     });
     pdf.save('تقرير-'+(currentTitle()||'شاشة')+'.pdf');
   }).catch(function(){ toast('تعذر إنشاء ملف PDF', true); });
@@ -1374,19 +1409,18 @@ function exportScreenInfographic(){
   toast('جارٍ تجهيز الصورة...');
   var widthPx=1000;
   captureAllReportPieces(widthPx).then(function(acc){
-    var totalH=acc.header.height + acc.footer.height + (acc.blocks||[]).reduce(function(s,c){ return s + c.height*(widthPx/c.width); },0);
     var out=document.createElement('canvas');
-    out.width=widthPx*2; // scale factor already baked into captured canvases (scale:2), keep consistent
+    out.width=widthPx*2;
     var scaledHeaderH=acc.header.height*(out.width/acc.header.width);
     var scaledFooterH=acc.footer.height*(out.width/acc.footer.width);
-    var blockHeights=(acc.blocks||[]).map(function(c){ return c.height*(out.width/c.width); });
+    var blockHeights=(acc.blocks||[]).map(function(item){ return item.canvas.height*(out.width/item.canvas.width); });
     out.height = scaledHeaderH + blockHeights.reduce(function(a,b){return a+b;},0) + scaledFooterH;
     var ctx=out.getContext('2d');
     ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,out.width,out.height);
     var y=0;
     ctx.drawImage(acc.header, 0, y, out.width, scaledHeaderH); y+=scaledHeaderH;
-    (acc.blocks||[]).forEach(function(c, i){
-      ctx.drawImage(c, 0, y, out.width, blockHeights[i]); y+=blockHeights[i];
+    (acc.blocks||[]).forEach(function(item, i){
+      ctx.drawImage(item.canvas, 0, y, out.width, blockHeights[i]); y+=blockHeights[i];
     });
     ctx.drawImage(acc.footer, 0, y, out.width, scaledFooterH);
     out.toBlob(function(blob){ download('تقرير-'+(currentTitle()||'شاشة')+'.png', blob); });
@@ -1397,7 +1431,7 @@ function exportScreenWord(){
   var widthPx=1000;
   captureAllReportPieces(widthPx).then(function(acc){
     var imgs='<img src="'+acc.header.toDataURL('image/png')+'" style="width:100%"/><br/>';
-    (acc.blocks||[]).forEach(function(c){ imgs+='<img src="'+c.toDataURL('image/png')+'" style="width:100%"/><br/>'; });
+    (acc.blocks||[]).forEach(function(item){ imgs+='<img src="'+item.canvas.toDataURL('image/png')+'" style="width:100%"/><br/>'; });
     imgs+='<img src="'+acc.footer.toDataURL('image/png')+'" style="width:100%"/>';
     var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'+
       '<head><meta charset="utf-8"><style>body{font-family:Arial;direction:rtl;text-align:right;margin:0}</style></head>'+
