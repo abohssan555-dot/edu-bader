@@ -1007,6 +1007,7 @@ function renderContent(){
   if(v==='kpis') return renderKpisView();
   if(v==='gap_analysis') return renderGapAnalysisView();
   if(v==='admin_school_mgmt') return renderAdminSchoolMgmtView();
+  if(v==='school_principals') return renderPrincipalsView();
   if(v==='archive') return renderArchiveView();
   if(v==='reports') return renderReportsView();
   if(v==='users') return isAdmin()? renderUsersView() : '<div class="panel">لا تملك صلاحية الوصول لهذه الصفحة.</div>';
@@ -1021,6 +1022,7 @@ function bindContentEvents(){
   if(v==='kpis') return bindKpisEvents();
   if(v==='gap_analysis') return;
   if(v==='admin_school_mgmt') return bindAdminSchoolMgmtEvents();
+  if(v==='school_principals') return;
   if(v==='archive') return bindArchiveEvents();
   if(v==='reports') return bindReportsEvents();
   if(v==='users') return bindUsersEvents();
@@ -2475,6 +2477,53 @@ function computeGapAnalysis(){
 function canEditAdminScreen(){
   return isAdmin() || currentRole()==='editor' || currentRole()==='admin_supervisor';
 }
+/* ================= مديرو المدارس (شاشة محسوبة تلقائياً من حقل "اسم المدير/ة") ================= */
+function renderPrincipalsView(){
+  var db=APP.db;
+  var schools=db.schools.filter(function(s){return !s.archived;});
+  var STAGE_RANK={'رياض أطفال':0,'ابتدائي':1,'متوسط':2,'ثانوي':3,'متعدد المراحل':2};
+  var byPrincipal={};
+  var noPrincipal=[];
+  schools.forEach(function(s){
+    var p=(s.principal||'').trim();
+    if(!p){ noPrincipal.push(s); return; }
+    (byPrincipal[p]=byPrincipal[p]||[]).push(s);
+  });
+  var names=Object.keys(byPrincipal).sort(function(a,b){return a.localeCompare(b,'ar');});
+
+  var html='<div class="panel">';
+  html+='<div class="small muted" style="margin-bottom:14px">شاشة محسوبة تلقائياً من حقل "اسم المدير/ة" في "بيانات المدارس" — لا تحتاج إدخالاً منفصلاً. لتصحيح اسم مدير/ة أو مدرسة تابعة له، عدّل حقل "قائد المدرسة" مباشرة من شاشة "بيانات المدارس".</div>';
+  html+='<div class="stats-compact-bar" style="margin-bottom:16px">';
+  html+='<span class="stat-chip stat-chip-main">👤 عدد المديرين/المديرات: <b>'+names.length+'</b></span>';
+  html+='<span class="stat-chip">إجمالي المدارس المرصودة: <b>'+schools.length+'</b></span>';
+  if(noPrincipal.length) html+='<span class="stat-chip">مدارس بلا اسم مدير مُدخل: <b>'+noPrincipal.length+'</b></span>';
+  html+='</div>';
+
+  html+='<div class="table-wrap"><table class="data"><thead><tr>'+
+    '<th class="num-col">م</th><th>اسم المدير/ة</th><th>عدد المدارس</th><th>نوع الإدارة</th><th>المدارس التابعة</th>'+
+    '</tr></thead><tbody>';
+  if(!names.length){
+    html+='<tr class="empty-row"><td colspan="5">لا توجد بيانات مديرين مُدخلة بعد.</td></tr>';
+  }else{
+    names.forEach(function(name, i){
+      var group=byPrincipal[name].slice().sort(function(a,b){return (STAGE_RANK[b.stage]||0)-(STAGE_RANK[a.stage]||0);});
+      var adminType = group.length>1 ? 'مشتركة' : 'مستقلة';
+      var schoolsList = group.map(function(s){return esc(s.name)+' <span class="small muted">('+esc(s.stage||'')+')</span>';}).join('، ');
+      html+='<tr><td class="num-col">'+(i+1)+'</td><td>'+esc(name)+'</td><td>'+group.length+'</td>'+
+        '<td><span class="badge '+(adminType==='مشتركة'?'st-progress':'st-active')+'"><span class="d"></span>'+adminType+'</span></td>'+
+        '<td>'+schoolsList+'</td></tr>';
+    });
+  }
+  html+='</tbody></table></div>';
+
+  if(noPrincipal.length){
+    html+='<div style="margin-top:18px"><strong class="small">مدارس بلا اسم مدير مُدخل بعد:</strong>';
+    html+='<div class="small muted" style="margin-top:6px">'+noPrincipal.map(function(s){return esc(s.name);}).join('، ')+'</div></div>';
+  }
+  html+='</div>';
+  return html;
+}
+
 function renderAdminSchoolMgmtView(){
   var db=APP.db;
   var schools=db.schools.filter(function(s){return !s.archived;}).slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''),'ar');});
