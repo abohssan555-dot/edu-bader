@@ -174,6 +174,22 @@ details.navgroup[open]>summary:after{transform:rotate(0deg)}
 .honor-pcts{display:flex;flex-direction:column;gap:4px;font-size:11.5px;color:#EAF3EF}
 .honor-pcts b{color:var(--accent)}
 
+.overview-hero{background:linear-gradient(120deg,#0D3E33,#145C4B 55%,#1B6B4F 85%,#C9A227);border-radius:16px;padding:34px 36px;margin-bottom:20px;position:relative;overflow:hidden}
+.overview-hero:before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 85% 20%, rgba(255,255,255,.15), transparent 50%)}
+.oh-eyebrow{color:var(--accent);font-weight:700;font-size:13px;letter-spacing:.5px;position:relative}
+.oh-title{color:#fff;font-family:'Tajawal',sans-serif;font-size:28px;font-weight:800;margin-top:8px;position:relative}
+.oh-sub{color:#D8EAE2;font-size:13px;margin-top:6px;position:relative}
+
+.hero-stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:22px}
+.hero-stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 16px;text-align:center;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.hero-stat-card:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.07)}
+.hs-icon{font-size:26px;margin-bottom:8px}
+.hs-num{font-family:'Tajawal',sans-serif;font-size:26px;font-weight:800;color:var(--primary-dark)}
+.hs-label{font-size:12px;color:var(--muted);margin-top:4px}
+.hero-stat-card.hs-blue .hs-num{color:var(--info)}
+.hero-stat-card.hs-green .hs-num{color:var(--ok)}
+.hero-stat-card.hs-gold .hs-num{color:#8a6d0c}
+
 .report-banner{background:linear-gradient(135deg,var(--primary-dark),var(--primary) 75%);color:#fff;padding:26px 30px;border-radius:14px;margin-bottom:22px;position:relative;overflow:hidden}
 .report-banner:before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 85% 15%, rgba(201,162,39,.28), transparent 45%)}
 .rb-eyebrow{color:var(--accent);font-weight:700;font-size:12px;letter-spacing:.5px;position:relative}
@@ -1058,66 +1074,40 @@ function renderHonorBoard(){
 
 function renderOverview(){
   var db=APP.db;
-  var totalRecords=db.records.filter(function(r){return !r.archived;}).length;
-  var internalCount=db.records.filter(function(r){var c=CATEGORIES.find(function(x){return x.id===r.category;});return c&&c.section==='internal'&&!r.archived;}).length;
-  var sharedCount=db.records.filter(function(r){var c=CATEGORIES.find(function(x){return x.id===r.category;});return c&&c.section==='shared'&&!r.archived;}).length;
-  var linksCount=db.formLinks.length;
-  var archivedCount=db.records.filter(function(r){return r.archived;}).length;
+  var schools=db.schools.filter(function(s){return !s.archived;});
+  var totalStudents=0, totalTeachers=0;
+  schools.forEach(function(s){
+    if(s.countBasis!=='مكرر'){
+      var st=parseFloat(s.studentsCount); if(!isNaN(st)) totalStudents+=st;
+      var te=parseFloat(s.teachersCount); if(!isNaN(te)) totalTeachers+=te;
+    }
+  });
+  var k=computeExcellenceKpi();
+  var promising=computePromisingSchools();
 
-  var statusCounts={};
-  STATUS_OPTS.forEach(function(s){statusCounts[s]=0;});
-  db.records.forEach(function(r){ if(!r.archived && statusCounts.hasOwnProperty(r.status)) statusCounts[r.status]++; });
-  var maxStatus=Math.max.apply(null,Object.values(statusCounts).concat([1]));
+  var today=new Date();
+  var dateStr=today.toLocaleDateString('ar-SA', {year:'numeric', month:'long', day:'numeric', weekday:'long'});
 
-  var byCat={};
-  CATEGORIES.forEach(function(c){ byCat[c.id]=0; });
-  db.records.forEach(function(r){ if(!r.archived && byCat.hasOwnProperty(r.category)) byCat[r.category]++; });
-  var topCats=Object.keys(byCat).map(function(k){return {id:k,c:byCat[k]};}).sort(function(a,b){return b.c-a.c;}).slice(0,6);
-  var maxCat=Math.max.apply(null,topCats.map(function(x){return x.c;}).concat([1]));
+  var html='<div class="overview-hero">';
+  html+='<div class="oh-eyebrow">إدارة التعليم — محافظة بدر</div>';
+  html+='<div class="oh-title">لوحة متابعة وتقويم التعليم</div>';
+  html+='<div class="oh-sub">'+esc(dateStr)+'</div>';
+  html+='</div>';
 
-  var recent=db.records.slice().sort(function(a,b){return new Date(b.createdAt)-new Date(a.createdAt);}).slice(0,6);
-
-  var html='<div class="cards-grid">'+
-    statCard('عدد المدارس المسجلة', db.schools.length, '')+
-    statCard('سجلات القضايا الداخلية', internalCount, 'accent')+
-    statCard('سجلات القضايا المشتركة', sharedCount, 'info')+
-    statCard('إجمالي السجلات النشطة', totalRecords, '')+
-    statCard('روابط نماذج مضافة', linksCount, 'accent')+
-    statCard('سجلات مؤرشفة', archivedCount, 'danger')+
-  '</div>';
+  html+='<div class="hero-stats-grid">';
+  html+=heroStat('🏫','إجمالي المدارس', schools.length, '');
+  html+=heroStat('👥','إجمالي الطلاب', totalStudents, 'blue');
+  html+=heroStat('🍎','إجمالي المعلمين', totalTeachers, 'blue');
+  html+=heroStat('🏆','نسبة المدارس المتميزة', k.total?(k.pct.toFixed(1)+'%'):'—', 'green');
+  html+=heroStat('⭐','مدارس واعدة بالتميز', promising.length, 'gold');
+  html+='</div>';
 
   html+=renderHonorBoard();
 
-  html+='<div class="cards-grid" style="grid-template-columns:1.3fr 1fr">';
-  html+='<div class="panel"><h3><span class="sq"></span>أعلى الفئات من حيث عدد السجلات</h3>';
-  if(topCats.every(function(t){return t.c===0;})){
-    html+='<div class="muted small">لا توجد بيانات بعد. ابدأ بإضافة سجلات من القائمة الجانبية.</div>';
-  }else{
-    topCats.forEach(function(t){
-      html+='<div class="bar-row"><div class="bl">'+esc(moduleLabel(t.id))+'</div><div class="bar-track"><div class="bar-fill" style="width:'+(t.c/maxCat*100)+'%"></div></div><div class="bn">'+t.c+'</div></div>';
-    });
-  }
-  html+='</div>';
-
-  html+='<div class="panel"><h3><span class="sq"></span>توزيع الحالات</h3>';
-  STATUS_OPTS.forEach(function(s){
-    html+='<div class="bar-row"><div class="bl">'+esc(s)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+(statusCounts[s]/maxStatus*100)+'%"></div></div><div class="bn">'+statusCounts[s]+'</div></div>';
-  });
-  html+='</div></div>';
-
-  html+='<div class="panel"><h3><span class="sq"></span>أحدث السجلات المضافة</h3>';
-  if(!recent.length){
-    html+='<div class="muted small">لا توجد سجلات بعد.</div>';
-  }else{
-    html+='<div class="table-wrap"><table class="data"><thead><tr><th>الفئة</th><th>العنوان / الاسم</th><th>الحالة</th><th>تاريخ الإضافة</th></tr></thead><tbody>';
-    recent.forEach(function(r){
-      var title=r.title||r.name||'—';
-      html+='<tr><td>'+esc(moduleLabel(r.category))+'</td><td>'+esc(title)+'</td><td>'+(r.status?'<span class="badge '+statusBadgeClass(r.status)+'"><span class="d"></span>'+esc(r.status)+'</span>':'—')+'</td><td>'+fmtDate(r.createdAt)+'</td></tr>';
-    });
-    html+='</tbody></table></div>';
-  }
-  html+='</div>';
   return html;
+}
+function heroStat(icon,label,num,cls){
+  return '<div class="hero-stat-card hs-'+(cls||'')+'"><div class="hs-icon">'+icon+'</div><div class="hs-num">'+num+'</div><div class="hs-label">'+esc(label)+'</div></div>';
 }
 function statCard(label,num,cls){
   return '<div class="stat-card '+(cls||'')+'"><div class="label">'+esc(label)+'</div><div class="stat-num">'+num+'</div></div>';
