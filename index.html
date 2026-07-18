@@ -1029,6 +1029,8 @@ function renderScreenExportToolbar(){
   var html='<div class="panel screen-export-panel">';
   html+='<div class="flexrow" style="justify-content:space-between"><h3><span class="sq"></span>إعداد تقرير من هذه الشاشة</h3>'+
     '<button type="button" class="btn btn-sm" id="btnToggleReportBuilder">'+(reportBuilderOpen?'إخفاء إعدادات التقرير ▲':'⚙️ قسم اعتماد التقرير ▼')+'</button></div>';
+  html+='<div class="field" style="margin-top:10px"><label class="small muted">عنوان التقرير الظاهر في رأس الصفحة (قابل للتعديل)</label>'+
+    '<input type="text" id="reportHeaderTitleInput" value="'+esc(currentReportHeaderTitle())+'"></div>';
   if(reportBuilderOpen){
     ensureReportBuilderInit();
     html+='<div class="report-builder">';
@@ -1063,6 +1065,9 @@ function renderScreenExportToolbar(){
 function bindScreenExportToolbar(){
   var tb=document.getElementById('btnToggleReportBuilder');
   if(tb) tb.onclick=function(){ reportBuilderOpen=!reportBuilderOpen; render(); };
+
+  var titleInp=document.getElementById('reportHeaderTitleInput');
+  if(titleInp) titleInp.oninput=function(){ reportHeaderTitle=titleInp.value; reportHeaderTitleScreenId=APP.view.id; };
 
   document.querySelectorAll('[data-rbtoggle]').forEach(function(cb){
     cb.onchange=function(){ reportBuilderItems[+cb.dataset.rbtoggle].include=cb.checked; };
@@ -1103,28 +1108,40 @@ function screenTitleForExport(){
   return (currentTitle()||'تقرير')+' — إدارة التعليم بمحافظة بدر';
 }
 /* ---------------- عناصر القالب الرسمي (رأس/تذييل/شعار) ---------------- */
+var reportHeaderTitle=null;
+var reportHeaderTitleScreenId=null;
+function currentReportHeaderTitle(){
+  if(reportHeaderTitle===null || reportHeaderTitleScreenId!==APP.view.id){
+    reportHeaderTitle = currentTitle()||'تقرير';
+    reportHeaderTitleScreenId = APP.view.id;
+  }
+  return reportHeaderTitle;
+}
 function moeHeaderNode(widthPx){
   var h=document.createElement('div');
-  var ratio=319/1400;
-  h.style.cssText='position:relative;width:'+widthPx+'px;height:'+Math.round(widthPx*ratio)+'px;background-image:url('+MOE_HEADER_IMG+');background-size:100% 100%;background-repeat:no-repeat';
+  var ratio=319/1400*0.62;
+  h.style.cssText='position:relative;width:'+widthPx+'px;height:'+Math.round(widthPx*ratio)+'px;background-image:url('+MOE_HEADER_IMG+');background-size:100% 100%;background-repeat:no-repeat;overflow:hidden';
+  var flexRow=document.createElement('div');
+  flexRow.style.cssText='position:absolute;inset:0;display:flex;flex-direction:row-reverse;align-items:center;padding:0 '+Math.round(widthPx*0.035)+'px;box-sizing:border-box;gap:'+Math.round(widthPx*0.03)+'px';
   var logo=document.createElement('img');
   logo.src=MOE_LOGO_IMG;
-  logo.style.cssText='position:absolute;top:14%;right:5%;height:60%';
-  h.appendChild(logo);
+  logo.style.cssText='height:44%;flex-shrink:0';
   var textBox=document.createElement('div');
-  textBox.style.cssText='position:absolute;top:0;right:22%;height:100%;display:flex;flex-direction:column;justify-content:center;text-align:right;max-width:55%';
+  textBox.style.cssText='text-align:right;flex:1;min-width:0;overflow:hidden';
   textBox.innerHTML=
-    '<div style="color:#fff;font-family:Tajawal,Cairo,sans-serif;font-size:'+Math.round(widthPx*0.016)+'px;font-weight:800">'+esc(screenTitleForExport())+'</div>'+
-    '<div style="color:#BFE3DF;font-family:Cairo,sans-serif;font-size:'+Math.round(widthPx*0.009)+'px;margin-top:4px">الإدارة العامة للتعليم بمنطقة المدينة المنورة — محافظة بدر</div>';
-  h.appendChild(textBox);
+    '<div style="color:#fff;font-family:Cairo,sans-serif;font-size:'+Math.round(widthPx*0.0095)+'px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">الإدارة العامة للتعليم بمنطقة المدينة المنورة</div>'+
+    '<div style="color:#fff;font-family:Tajawal,Cairo,sans-serif;font-size:'+Math.round(widthPx*0.015)+'px;font-weight:800;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(currentReportHeaderTitle())+'</div>';
+  flexRow.appendChild(logo);
+  flexRow.appendChild(textBox);
+  h.appendChild(flexRow);
   return h;
 }
 function moeFooterNode(widthPx, pageLabel){
   var f=document.createElement('div');
-  var ratio=190/1400;
+  var ratio=190/1400*0.55;
   f.style.cssText='position:relative;width:'+widthPx+'px;height:'+Math.round(widthPx*ratio)+'px;background-image:url('+MOE_FOOTER_IMG+');background-size:100% 100%;background-repeat:no-repeat';
   var lbl=document.createElement('div');
-  lbl.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-family:Cairo,sans-serif;font-size:'+Math.round(widthPx*0.009)+'px';
+  lbl.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-family:Cairo,sans-serif;font-size:'+Math.round(widthPx*0.0085)+'px';
   lbl.textContent=pageLabel||'نظام متابعة التعليم — محافظة بدر';
   f.appendChild(lbl);
   return f;
