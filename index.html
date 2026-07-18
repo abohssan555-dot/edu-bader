@@ -1016,39 +1016,63 @@ function bindScreenExportToolbar(){
 function screenTitleForExport(){
   return (currentTitle()||'تقرير')+' — إدارة التعليم بمحافظة بدر';
 }
+function buildExportCaptureNode(){
+  var src=document.getElementById('screenCaptureArea');
+  if(!src) return null;
+  var wrapper=document.createElement('div');
+  wrapper.style.cssText='position:fixed;left:-99999px;top:0;width:'+src.offsetWidth+'px;background:#fff;direction:rtl;padding:24px;font-family:Cairo,Arial,sans-serif';
+
+  var titleEl=document.createElement('div');
+  titleEl.style.cssText='font-size:20px;font-weight:800;margin-bottom:16px;color:#0D3E33;font-family:Tajawal,Cairo,sans-serif';
+  titleEl.textContent=screenTitleForExport();
+  wrapper.appendChild(titleEl);
+
+  wrapper.appendChild(src.cloneNode(true));
+
+  if(screenReportNotes.trim()){
+    var notesBox=document.createElement('div');
+    notesBox.style.cssText='margin-top:18px;padding:14px 16px;background:#E3EEE9;border-radius:10px;font-size:14px;white-space:pre-wrap;color:#182620;line-height:1.7';
+    var notesTitle=document.createElement('div');
+    notesTitle.style.cssText='font-weight:800;margin-bottom:6px;color:#145C4B;font-family:Tajawal,Cairo,sans-serif';
+    notesTitle.textContent='ملاحظات:';
+    notesBox.appendChild(notesTitle);
+    var notesText=document.createElement('div');
+    notesText.textContent=screenReportNotes;
+    notesBox.appendChild(notesText);
+    wrapper.appendChild(notesBox);
+  }
+
+  document.body.appendChild(wrapper);
+  return wrapper;
+}
 function captureScreenCanvas(){
-  var el=document.getElementById('screenCaptureArea');
-  if(!el || !window.html2canvas) return Promise.reject('missing');
-  return html2canvas(el, {scale:2, backgroundColor:'#ffffff'});
+  if(!window.html2canvas) return Promise.reject('missing');
+  var wrapper=buildExportCaptureNode();
+  if(!wrapper) return Promise.reject('missing');
+  return html2canvas(wrapper, {scale:2, backgroundColor:'#ffffff'}).then(function(canvas){
+    document.body.removeChild(wrapper);
+    return canvas;
+  }).catch(function(err){
+    if(wrapper.parentNode) document.body.removeChild(wrapper);
+    throw err;
+  });
 }
 function exportScreenPdf(){
   toast('جارٍ تجهيز ملف PDF...');
   captureScreenCanvas().then(function(canvas){
     var pdf=new window.jspdf.jsPDF('p','mm','a4');
     var pageW=210, pageH=297, margin=10;
-    var titleH=14;
-    pdf.setFontSize(13);
-    pdf.text(screenTitleForExport(), pageW-margin, margin+4, {align:'right'});
     var imgW=pageW-2*margin;
     var imgH=canvas.height*imgW/canvas.width;
-    var y=margin+titleH;
     var imgData=canvas.toDataURL('image/png');
-    var heightLeft=imgH;
-    pdf.addImage(imgData,'PNG',margin,y,imgW,imgH);
-    heightLeft -= (pageH-y-margin);
+    var heightLeft=imgH, position=margin;
+    pdf.addImage(imgData,'PNG',margin,position,imgW,imgH);
+    heightLeft -= (pageH-2*margin);
     while(heightLeft>0){
       pdf.addPage();
-      var position = heightLeft - imgH + margin;
+      position = heightLeft - imgH + margin;
       pdf.addImage(imgData,'PNG',margin,position,imgW,imgH);
       heightLeft -= (pageH-2*margin);
-    }
-    if(screenReportNotes.trim()){
-      pdf.addPage();
-      pdf.setFontSize(13);
-      pdf.text('ملاحظات', pageW-margin, margin+6, {align:'right'});
-      pdf.setFontSize(11);
-      var lines=pdf.splitTextToSize(screenReportNotes, pageW-2*margin);
-      pdf.text(lines, pageW-margin, margin+16, {align:'right'});
     }
     pdf.save('تقرير-'+(currentTitle()||'شاشة')+'.pdf');
   }).catch(function(){ toast('تعذر إنشاء ملف PDF', true); });
@@ -1063,10 +1087,9 @@ function exportScreenWord(){
   toast('جارٍ تجهيز ملف Word...');
   captureScreenCanvas().then(function(canvas){
     var imgData=canvas.toDataURL('image/png');
-    var notesHtml = screenReportNotes.trim() ? ('<h3>ملاحظات</h3><p>'+esc(screenReportNotes).replace(/\n/g,'<br>')+'</p>') : '';
     var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'+
       '<head><meta charset="utf-8"><style>body{font-family:Arial;direction:rtl;text-align:right}</style></head>'+
-      '<body><h1>'+esc(screenTitleForExport())+'</h1><img src="'+imgData+'" style="max-width:100%"/>'+notesHtml+'</body></html>';
+      '<body><img src="'+imgData+'" style="max-width:100%"/></body></html>';
     var blob=new Blob(['\ufeff', html], {type:'application/msword'});
     download('تقرير-'+(currentTitle()||'شاشة')+'.doc', blob);
   }).catch(function(){ toast('تعذر إنشاء ملف Word', true); });
