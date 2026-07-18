@@ -1033,6 +1033,10 @@ function renderScreenExportToolbar(){
     '<input type="text" id="reportHeaderDeptInput" value="'+esc(currentReportHeaderDept())+'"></div>';
   html+='<div class="field" style="margin-top:8px"><label class="small muted">عنوان التقرير (يظهر داخل التقرير، وسط الصفحة)</label>'+
     '<input type="text" id="reportBodyTitleInput" value="'+esc(currentReportBodyTitle())+'"></div>';
+  html+='<div class="flexrow" style="gap:10px;margin-top:8px">'+
+    '<div class="field" style="flex:1"><label class="small muted">اسم معتمد التقرير</label><input type="text" id="reportApproverNameInput" value="'+esc(currentReportApproverName())+'"></div>'+
+    '<div class="field" style="flex:1"><label class="small muted">التوقيع</label><input type="text" id="reportApproverSignatureInput" value="'+esc(currentReportApproverSignature())+'"></div>'+
+  '</div>';
   if(reportBuilderOpen){
     html+='<div class="report-builder">';
     html+='<div class="small muted" style="margin:8px 0">فعّل/عطّل الأجزاء التي تظهر بالتقرير، رتّبها بالأسهم، وأضف نصوصاً بعناوين في أي موقع تريده.</div>';
@@ -1081,6 +1085,10 @@ function bindScreenExportToolbar(){
   if(deptInp) deptInp.oninput=function(){ reportHeaderDept=deptInp.value; reportHeaderDeptScreenId=APP.view.id; };
   var bodyTitleInp=document.getElementById('reportBodyTitleInput');
   if(bodyTitleInp) bodyTitleInp.oninput=function(){ reportBodyTitle=bodyTitleInp.value; reportBodyTitleScreenId=APP.view.id; };
+  var approverInp=document.getElementById('reportApproverNameInput');
+  if(approverInp) approverInp.oninput=function(){ reportApproverName=approverInp.value; reportApproverNameScreenId=APP.view.id; };
+  var signInp=document.getElementById('reportApproverSignatureInput');
+  if(signInp) signInp.oninput=function(){ reportApproverSignature=signInp.value; reportApproverSignatureScreenId=APP.view.id; };
 
   document.querySelectorAll('[data-rbtoggle]').forEach(function(cb){
     cb.onchange=function(){ reportBuilderItems[+cb.dataset.rbtoggle].include=cb.checked; };
@@ -1142,17 +1150,17 @@ function currentReportBodyTitle(){
 function moeHeaderNode(widthPx){
   var h=document.createElement('div');
   var ratio=319/1400*0.62;
-  h.style.cssText='position:relative;width:'+widthPx+'px;height:'+Math.round(widthPx*ratio)+'px;background-image:url('+MOE_HEADER_IMG+');background-size:100% 100%;background-repeat:no-repeat;overflow:hidden;display:flex;align-items:center;justify-content:center';
+  h.style.cssText='position:relative;width:'+widthPx+'px;height:'+Math.round(widthPx*ratio)+'px;background-image:url('+MOE_HEADER_IMG+');background-size:100% 100%;background-repeat:no-repeat;overflow:hidden;display:flex;align-items:center;justify-content:center;direction:rtl';
   var group=document.createElement('div');
-  group.style.cssText='display:flex;flex-direction:row-reverse;align-items:center;gap:'+Math.round(widthPx*0.025)+'px';
+  group.style.cssText='display:flex;flex-direction:row;align-items:center;gap:'+Math.round(widthPx*0.025)+'px;direction:rtl';
   var logo=document.createElement('img');
   logo.src=MOE_LOGO_IMG;
   logo.style.cssText='height:'+Math.round(widthPx*ratio*0.5)+'px;flex-shrink:0';
   var textBox=document.createElement('div');
   textBox.style.cssText='text-align:right;white-space:nowrap';
   textBox.innerHTML=
-    '<div style="color:#fff;font-family:Tajawal,Cairo,sans-serif;font-size:'+Math.round(widthPx*0.0125)+'px;font-weight:800">الإدارة العامة للتعليم بمنطقة المدينة المنورة</div>'+
-    '<div style="color:#fff;font-family:Cairo,sans-serif;font-size:'+Math.round(widthPx*0.011)+'px;margin-top:4px;opacity:.95">'+esc(currentReportHeaderDept())+'</div>';
+    '<div style="color:#fff;font-family:Tajawal,Cairo,sans-serif;font-size:'+Math.round(widthPx*0.0165)+'px;font-weight:800">الإدارة العامة للتعليم بمنطقة المدينة المنورة</div>'+
+    '<div style="color:#fff;font-family:Cairo,sans-serif;font-size:'+Math.round(widthPx*0.0145)+'px;margin-top:4px;opacity:.95">'+esc(currentReportHeaderDept())+'</div>';
   group.appendChild(logo);
   group.appendChild(textBox);
   h.appendChild(group);
@@ -1161,7 +1169,7 @@ function moeHeaderNode(widthPx){
 function reportBodyTitleNode(widthPx){
   var box=document.createElement('div');
   box.style.cssText='width:'+widthPx+'px;padding:16px 22px 4px;text-align:center;direction:rtl;font-family:Cairo,Arial,sans-serif;background:#fff';
-  box.innerHTML='<div style="font-family:Tajawal,Cairo,sans-serif;font-size:19px;font-weight:800;color:#0C7A78">'+esc(currentReportBodyTitle())+'</div>'+
+  box.innerHTML='<div style="font-family:Tajawal,Cairo,sans-serif;font-size:23px;font-weight:800;color:#0C7A78">'+esc(currentReportBodyTitle())+'</div>'+
     '<div style="width:60px;height:3px;background:#10A9A6;margin:8px auto 0;border-radius:2px"></div>';
   return box;
 }
@@ -1189,21 +1197,21 @@ function captureNodeAsCanvas(node){
 function reportContentStyleOverride(){
   var s=document.createElement('style');
   s.textContent=
-    'h3{color:#0CA868 !important;font-size:17px !important}'+
+    'h3{color:#0CA868 !important;font-size:21px !important}'+
     '.sq{background:#10A9A6 !important}'+
     '.stat-chip-main{background:#E7F7F5 !important;color:#0CA868 !important}'+
     '.honor-board{background:linear-gradient(135deg,#0C7A78,#10A9A6 60%,#38987F) !important}'+
     '.overview-hero{background:linear-gradient(120deg,#0C7A78,#10A9A6 55%,#38987F 100%) !important}'+
-    '.hs-num{color:#0CA868 !important;font-size:24px !important}'+
-    '.hs-label{font-size:13px !important}'+
+    '.hs-num{color:#0CA868 !important;font-size:30px !important}'+
+    '.hs-label{font-size:16px !important}'+
     '.badge.st-progress, .perf-pill{background:#E7F7F5 !important;color:#0CA868 !important}'+
-    'table.data{font-size:14px !important}'+
-    'table.data th, table.data td{font-size:14px !important;padding:8px 10px !important}'+
-    '.small{font-size:13px !important}'+
-    '.stat-chip{font-size:13.5px !important}'+
-    '.honor-name{font-size:12.5px !important}'+
-    '.honor-meta, .honor-pcts{font-size:11px !important}'+
-    '.bar-row .bl, .bar-row .bn{font-size:13.5px !important}';
+    'table.data{font-size:17px !important}'+
+    'table.data th, table.data td{font-size:17px !important;padding:10px 12px !important}'+
+    '.small{font-size:16px !important}'+
+    '.stat-chip{font-size:16.5px !important}'+
+    '.honor-name{font-size:15.5px !important}'+
+    '.honor-meta, .honor-pcts{font-size:14px !important}'+
+    '.bar-row .bl, .bar-row .bn{font-size:16.5px !important}';
   return s;
 }
 /* يبني قائمة عُقَد DOM منفصلة، عُقدة لكل جزء مُدرَج في التقرير (بلا رأس/تذييل) */
@@ -1252,12 +1260,65 @@ function getReportContentNodes(widthPx){
     nodes.push(wrapClone(src.cloneNode(true)));
     if(screenReportNotes && screenReportNotes.trim()) nodes.push(textNode('ملاحظات', screenReportNotes));
   }
-  return nodes;
+  var expanded=[];
+  nodes.forEach(function(n){ expanded=expanded.concat(splitOversizedTableNode(n)); });
+  return expanded;
+}
+/* إذا كان القسم يحتوي جدولاً طويلاً جداً، يُقسَّم إلى أجزاء بحجم صفحة، وكل جزء يحمل صف رؤوس الجدول مكرَّراً بدل تصغير الجدول كاملاً */
+function splitOversizedTableNode(node){
+  var table=node.querySelector('table');
+  if(!table) return [node];
+  var tbody=table.querySelector('tbody');
+  if(!tbody || tbody.rows.length<=16) return [node];
+  var rows=Array.prototype.slice.call(tbody.rows);
+  var ROWS_PER_CHUNK=16;
+  var chunks=[];
+  for(var i=0;i<rows.length;i+=ROWS_PER_CHUNK){
+    var slice=rows.slice(i, i+ROWS_PER_CHUNK);
+    var clone=node.cloneNode(true);
+    var cTable=clone.querySelector('table');
+    var cTbody=cTable.querySelector('tbody');
+    cTbody.innerHTML='';
+    slice.forEach(function(r){ cTbody.appendChild(r.cloneNode(true)); });
+    if(i>0){
+      // في الأجزاء التالية (غير الأول)، أبقِ فقط على الجدول نفسه واحذف أي عنوان/نص تمهيدي متكرر
+      var styleTag=clone.querySelector('style');
+      var tableWrap=cTable.closest('.table-wrap')||cTable;
+      clone.innerHTML='';
+      if(styleTag) clone.appendChild(styleTag);
+      clone.appendChild(tableWrap);
+    }
+    chunks.push(clone);
+  }
+  return chunks;
+}
+var reportApproverName=null, reportApproverNameScreenId=null;
+var reportApproverSignature=null, reportApproverSignatureScreenId=null;
+function currentReportApproverName(){
+  if(reportApproverName===null || reportApproverNameScreenId!==APP.view.id){ reportApproverName=''; reportApproverNameScreenId=APP.view.id; }
+  return reportApproverName;
+}
+function currentReportApproverSignature(){
+  if(reportApproverSignature===null || reportApproverSignatureScreenId!==APP.view.id){ reportApproverSignature=''; reportApproverSignatureScreenId=APP.view.id; }
+  return reportApproverSignature;
+}
+function approvalBlockNode(widthPx){
+  var box=document.createElement('div');
+  box.style.cssText='width:'+widthPx+'px;padding:18px 22px;direction:rtl;font-family:Cairo,Arial,sans-serif;background:#fff';
+  var inner=document.createElement('div');
+  inner.style.cssText='border:1.5px solid #10A9A6;border-radius:10px;padding:16px 20px';
+  inner.innerHTML='<div style="font-family:Tajawal,Cairo,sans-serif;font-weight:800;font-size:17px;color:#0C7A78;margin-bottom:12px">اعتماد التقرير</div>'+
+    '<div style="display:flex;gap:40px;font-size:16px;color:#182620">'+
+      '<div><span style="font-weight:800">الاسم: </span>'+esc(currentReportApproverName()||'.......................................')+'</div>'+
+      '<div><span style="font-weight:800">التوقيع: </span>'+esc(currentReportApproverSignature()||'.......................................')+'</div>'+
+    '</div>';
+  box.appendChild(inner);
+  return box;
 }
 function captureAllReportPieces(widthPx){
   var header=moeHeaderNode(widthPx);
   var footer=moeFooterNode(widthPx);
-  var contentNodes=[reportBodyTitleNode(widthPx)].concat(getReportContentNodes(widthPx));
+  var contentNodes=[reportBodyTitleNode(widthPx)].concat(getReportContentNodes(widthPx)).concat([approvalBlockNode(widthPx)]);
   var chain=captureNodeAsCanvas(header).then(function(hc){ return {header:hc}; });
   chain=chain.then(function(acc){ return captureNodeAsCanvas(footer).then(function(fc){ acc.footer=fc; return acc; }); });
   contentNodes.forEach(function(node, i){
