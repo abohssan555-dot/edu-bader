@@ -189,6 +189,7 @@ details.navgroup[open]>summary:after{transform:rotate(0deg)}
 .hero-stat-card.hs-blue .hs-num{color:var(--info)}
 .hero-stat-card.hs-green .hs-num{color:var(--ok)}
 .hero-stat-card.hs-gold .hs-num{color:#8a6d0c}
+.screen-export-panel textarea{width:100%;border:1px solid var(--border);border-radius:8px;padding:10px;font-family:inherit;font-size:13px;resize:vertical;margin-top:6px}
 
 .report-banner{background:linear-gradient(135deg,var(--primary-dark),var(--primary) 75%);color:#fff;padding:26px 30px;border-radius:14px;margin-bottom:22px;position:relative;overflow:hidden}
 .report-banner:before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 85% 15%, rgba(201,162,39,.28), transparent 45%)}
@@ -968,8 +969,13 @@ function currentCrumb(){
   return '';
 }
 
+var REPORTABLE_SCREENS=['overview','gap_analysis','sector_info','school_principals','kpis','admin_school_mgmt'];
+var screenReportNotes='';
 function renderShell(){
   var content = renderContent();
+  if(REPORTABLE_SCREENS.indexOf(APP.view.id)>=0){
+    content = '<div id="screenCaptureArea">'+content+'</div>'+renderScreenExportToolbar();
+  }
   return ''+
   '<div id="app">'+
     '<div id="sidebar" class="'+(APP.sidebarOpen?'open':'')+'">'+
@@ -986,6 +992,101 @@ function renderShell(){
     '</div>'+
   '</div>';
 }
+function renderScreenExportToolbar(){
+  var html='<div class="panel screen-export-panel">';
+  html+='<h3><span class="sq"></span>إعداد تقرير من هذه الشاشة</h3>';
+  html+='<label class="small muted">ملاحظات لإضافتها إلى التقرير (اختياري)</label>';
+  html+='<textarea id="screenReportNotes" rows="3" placeholder="اكتب ملاحظتك هنا...">'+esc(screenReportNotes)+'</textarea>';
+  html+='<div class="toolbar" style="margin-top:10px">'+
+    '<button class="btn" id="btnExpScreenWord">📄 Word</button>'+
+    '<button class="btn" id="btnExpScreenPdf">📕 PDF</button>'+
+    '<button class="btn" id="btnExpScreenExcel">📊 Excel</button>'+
+    '<button class="btn btn-accent" id="btnExpScreenInfo">🖼️ انفوجرافيك</button>'+
+  '</div></div>';
+  return html;
+}
+function bindScreenExportToolbar(){
+  var ta=document.getElementById('screenReportNotes');
+  if(ta) ta.oninput=function(){ screenReportNotes=ta.value; };
+  var b1=document.getElementById('btnExpScreenWord'); if(b1) b1.onclick=exportScreenWord;
+  var b2=document.getElementById('btnExpScreenPdf'); if(b2) b2.onclick=exportScreenPdf;
+  var b3=document.getElementById('btnExpScreenExcel'); if(b3) b3.onclick=exportScreenExcel;
+  var b4=document.getElementById('btnExpScreenInfo'); if(b4) b4.onclick=exportScreenInfographic;
+}
+function screenTitleForExport(){
+  return (currentTitle()||'تقرير')+' — إدارة التعليم بمحافظة بدر';
+}
+function captureScreenCanvas(){
+  var el=document.getElementById('screenCaptureArea');
+  if(!el || !window.html2canvas) return Promise.reject('missing');
+  return html2canvas(el, {scale:2, backgroundColor:'#ffffff'});
+}
+function exportScreenPdf(){
+  toast('جارٍ تجهيز ملف PDF...');
+  captureScreenCanvas().then(function(canvas){
+    var pdf=new window.jspdf.jsPDF('p','mm','a4');
+    var pageW=210, pageH=297, margin=10;
+    var titleH=14;
+    pdf.setFontSize(13);
+    pdf.text(screenTitleForExport(), pageW-margin, margin+4, {align:'right'});
+    var imgW=pageW-2*margin;
+    var imgH=canvas.height*imgW/canvas.width;
+    var y=margin+titleH;
+    var imgData=canvas.toDataURL('image/png');
+    var heightLeft=imgH;
+    pdf.addImage(imgData,'PNG',margin,y,imgW,imgH);
+    heightLeft -= (pageH-y-margin);
+    while(heightLeft>0){
+      pdf.addPage();
+      var position = heightLeft - imgH + margin;
+      pdf.addImage(imgData,'PNG',margin,position,imgW,imgH);
+      heightLeft -= (pageH-2*margin);
+    }
+    if(screenReportNotes.trim()){
+      pdf.addPage();
+      pdf.setFontSize(13);
+      pdf.text('ملاحظات', pageW-margin, margin+6, {align:'right'});
+      pdf.setFontSize(11);
+      var lines=pdf.splitTextToSize(screenReportNotes, pageW-2*margin);
+      pdf.text(lines, pageW-margin, margin+16, {align:'right'});
+    }
+    pdf.save('تقرير-'+(currentTitle()||'شاشة')+'.pdf');
+  }).catch(function(){ toast('تعذر إنشاء ملف PDF', true); });
+}
+function exportScreenInfographic(){
+  toast('جارٍ تجهيز الصورة...');
+  captureScreenCanvas().then(function(canvas){
+    canvas.toBlob(function(blob){ download('تقرير-'+(currentTitle()||'شاشة')+'.png', blob); });
+  }).catch(function(){ toast('تعذر إنشاء الصورة', true); });
+}
+function exportScreenWord(){
+  toast('جارٍ تجهيز ملف Word...');
+  captureScreenCanvas().then(function(canvas){
+    var imgData=canvas.toDataURL('image/png');
+    var notesHtml = screenReportNotes.trim() ? ('<h3>ملاحظات</h3><p>'+esc(screenReportNotes).replace(/\n/g,'<br>')+'</p>') : '';
+    var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'+
+      '<head><meta charset="utf-8"><style>body{font-family:Arial;direction:rtl;text-align:right}</style></head>'+
+      '<body><h1>'+esc(screenTitleForExport())+'</h1><img src="'+imgData+'" style="max-width:100%"/>'+notesHtml+'</body></html>';
+    var blob=new Blob(['\ufeff', html], {type:'application/msword'});
+    download('تقرير-'+(currentTitle()||'شاشة')+'.doc', blob);
+  }).catch(function(){ toast('تعذر إنشاء ملف Word', true); });
+}
+function exportScreenExcel(){
+  var el=document.getElementById('screenCaptureArea');
+  var tables=el?el.querySelectorAll('table'):[];
+  if(!tables.length){ toast('لا توجد بيانات جدولية في هذه الشاشة لتصديرها كإكسل — جرّب Word أو PDF أو انفوجرافيك بدلاً منها', true); return; }
+  var wb=XLSX.utils.book_new();
+  tables.forEach(function(t, i){
+    var ws=XLSX.utils.table_to_sheet(t);
+    XLSX.utils.book_append_sheet(wb, ws, 'جدول '+(i+1));
+  });
+  if(screenReportNotes.trim()){
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['ملاحظات'],[screenReportNotes]]), 'ملاحظات');
+  }
+  XLSX.writeFile(wb, 'تقرير-'+(currentTitle()||'شاشة')+'.xlsx');
+  toast('تم تصدير الملف');
+}
+
 function roleLabel(r){ return {admin:'مشرف عام', editor:'محرر بيانات', viewer:'مشاهدة فقط', provider:'مقدم خدمة', team_member:'عضو فريق تنفيذي', admin_supervisor:'مشرف إدارة مدرسية', team_leader:'رئيس الفريق التنفيذي'}[r]||r; }
 
 function bindShellEvents(){
@@ -1013,6 +1114,7 @@ function bindShellEvents(){
     render();
   };
   bindContentEvents();
+  if(REPORTABLE_SCREENS.indexOf(APP.view.id)>=0) bindScreenExportToolbar();
 }
 
 /* ================= CONTENT ROUTER ================= */
