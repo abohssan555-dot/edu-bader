@@ -190,6 +190,10 @@ details.navgroup[open]>summary:after{transform:rotate(0deg)}
 .hero-stat-card.hs-green .hs-num{color:var(--ok)}
 .hero-stat-card.hs-gold .hs-num{color:#8a6d0c}
 .screen-export-panel textarea{width:100%;border:1px solid var(--border);border-radius:8px;padding:10px;font-family:inherit;font-size:13px;resize:vertical;margin-top:6px}
+.report-builder{border-top:1px solid var(--border);padding-top:10px}
+.rb-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px dashed var(--border)}
+.rb-item:last-of-type{border-bottom:none}
+.rb-actions{display:flex;gap:4px;flex-shrink:0}
 
 .report-banner{background:linear-gradient(135deg,var(--primary-dark),var(--primary) 75%);color:#fff;padding:26px 30px;border-radius:14px;margin-bottom:22px;position:relative;overflow:hidden}
 .report-banner:before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 85% 15%, rgba(201,162,39,.28), transparent 45%)}
@@ -992,12 +996,58 @@ function renderShell(){
     '</div>'+
   '</div>';
 }
+var reportBuilderItems=null;
+var reportBuilderScreenId=null;
+var reportBuilderOpen=false;
+
+function detectReportBlocks(){
+  var src=document.getElementById('screenCaptureArea');
+  if(!src) return [];
+  return Array.prototype.slice.call(src.children).map(function(el, i){
+    var h3=el.querySelector('h3');
+    var title = h3 ? h3.textContent.trim() : (
+      el.classList.contains('honor-board') ? '🏆 لوحة الشرف' :
+      el.classList.contains('hero-stats-grid') ? 'المؤشرات الرئيسية' :
+      el.classList.contains('overview-hero') ? 'الشريط الرئيسي' :
+      'قسم '+(i+1)
+    );
+    return {id:'block-'+i, type:'block', title:title, el:el};
+  });
+}
+function ensureReportBuilderInit(){
+  if(reportBuilderItems===null || reportBuilderScreenId!==APP.view.id){
+    reportBuilderItems = detectReportBlocks().map(function(b){ return {id:b.id, type:'block', title:b.title, include:true}; });
+    reportBuilderScreenId = APP.view.id;
+  }
+}
 function renderScreenExportToolbar(){
   var html='<div class="panel screen-export-panel">';
-  html+='<h3><span class="sq"></span>إعداد تقرير من هذه الشاشة</h3>';
-  html+='<label class="small muted">ملاحظات لإضافتها إلى التقرير (اختياري)</label>';
-  html+='<textarea id="screenReportNotes" rows="3" placeholder="اكتب ملاحظتك هنا...">'+esc(screenReportNotes)+'</textarea>';
-  html+='<div class="toolbar" style="margin-top:10px">'+
+  html+='<div class="flexrow" style="justify-content:space-between"><h3><span class="sq"></span>إعداد تقرير من هذه الشاشة</h3>'+
+    '<button type="button" class="btn btn-sm" id="btnToggleReportBuilder">'+(reportBuilderOpen?'إخفاء إعدادات التقرير ▲':'⚙️ قسم اعتماد التقرير ▼')+'</button></div>';
+  if(reportBuilderOpen){
+    ensureReportBuilderInit();
+    html+='<div class="report-builder">';
+    html+='<div class="small muted" style="margin:8px 0">فعّل/عطّل الأجزاء التي تظهر بالتقرير، رتّبها بالأسهم، وأضف نصوصاً بعناوين في أي موقع تريده.</div>';
+    reportBuilderItems.forEach(function(item, i){
+      html+='<div class="rb-item">';
+      html+='<label class="flexrow" style="flex:1"><input type="checkbox" data-rbtoggle="'+i+'" '+(item.include?'checked':'')+'>';
+      if(item.type==='text'){
+        html+='<div style="flex:1"><input type="text" data-rbtitle="'+i+'" value="'+esc(item.title)+'" placeholder="عنوان النص" style="width:100%;margin-bottom:6px;padding:6px 8px;border:1px solid var(--border);border-radius:6px">'+
+          '<textarea data-rbbody="'+i+'" rows="2" placeholder="اكتب النص هنا..." style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px">'+esc(item.body||'')+'</textarea></div>';
+      }else{
+        html+='<span>'+esc(item.title)+'</span>';
+      }
+      html+='</label>';
+      html+='<div class="rb-actions">'+
+        '<button type="button" class="btn btn-sm" data-rbup="'+i+'" '+(i===0?'disabled':'')+'>▲</button>'+
+        '<button type="button" class="btn btn-sm" data-rbdown="'+i+'" '+(i===reportBuilderItems.length-1?'disabled':'')+'>▼</button>'+
+        (item.type==='text' ? '<button type="button" class="btn btn-sm" data-rbdel="'+i+'">🗑</button>' : '')+
+      '</div></div>';
+    });
+    html+='<button type="button" class="btn btn-sm btn-accent" id="btnAddReportText" style="margin-top:10px">+ إضافة نص بعنوان</button>';
+    html+='</div>';
+  }
+  html+='<div class="toolbar" style="margin-top:14px">'+
     '<button class="btn" id="btnExpScreenWord">📄 Word</button>'+
     '<button class="btn" id="btnExpScreenPdf">📕 PDF</button>'+
     '<button class="btn" id="btnExpScreenExcel">📊 Excel</button>'+
@@ -1006,8 +1056,39 @@ function renderScreenExportToolbar(){
   return html;
 }
 function bindScreenExportToolbar(){
-  var ta=document.getElementById('screenReportNotes');
-  if(ta) ta.oninput=function(){ screenReportNotes=ta.value; };
+  var tb=document.getElementById('btnToggleReportBuilder');
+  if(tb) tb.onclick=function(){ reportBuilderOpen=!reportBuilderOpen; render(); };
+
+  document.querySelectorAll('[data-rbtoggle]').forEach(function(cb){
+    cb.onchange=function(){ reportBuilderItems[+cb.dataset.rbtoggle].include=cb.checked; };
+  });
+  document.querySelectorAll('[data-rbtitle]').forEach(function(inp){
+    inp.oninput=function(){ reportBuilderItems[+inp.dataset.rbtitle].title=inp.value; };
+  });
+  document.querySelectorAll('[data-rbbody]').forEach(function(ta){
+    ta.oninput=function(){ reportBuilderItems[+ta.dataset.rbbody].body=ta.value; };
+  });
+  document.querySelectorAll('[data-rbup]').forEach(function(b){
+    b.onclick=function(){
+      var i=+b.dataset.rbup;
+      if(i>0){ var tmp=reportBuilderItems[i-1]; reportBuilderItems[i-1]=reportBuilderItems[i]; reportBuilderItems[i]=tmp; render(); }
+    };
+  });
+  document.querySelectorAll('[data-rbdown]').forEach(function(b){
+    b.onclick=function(){
+      var i=+b.dataset.rbdown;
+      if(i<reportBuilderItems.length-1){ var tmp=reportBuilderItems[i+1]; reportBuilderItems[i+1]=reportBuilderItems[i]; reportBuilderItems[i]=tmp; render(); }
+    };
+  });
+  document.querySelectorAll('[data-rbdel]').forEach(function(b){
+    b.onclick=function(){ reportBuilderItems.splice(+b.dataset.rbdel,1); render(); };
+  });
+  var addBtn=document.getElementById('btnAddReportText');
+  if(addBtn) addBtn.onclick=function(){
+    reportBuilderItems.push({id:'text-'+Date.now(), type:'text', title:'', body:'', include:true});
+    render();
+  };
+
   var b1=document.getElementById('btnExpScreenWord'); if(b1) b1.onclick=exportScreenWord;
   var b2=document.getElementById('btnExpScreenPdf'); if(b2) b2.onclick=exportScreenPdf;
   var b3=document.getElementById('btnExpScreenExcel'); if(b3) b3.onclick=exportScreenExcel;
@@ -1020,27 +1101,72 @@ function buildExportCaptureNode(){
   var src=document.getElementById('screenCaptureArea');
   if(!src) return null;
   var wrapper=document.createElement('div');
-  wrapper.style.cssText='position:fixed;left:-99999px;top:0;width:'+src.offsetWidth+'px;background:#fff;direction:rtl;padding:24px;font-family:Cairo,Arial,sans-serif';
+  wrapper.className='moe-report-tpl';
+  wrapper.style.cssText='position:fixed;left:-99999px;top:0;width:'+src.offsetWidth+'px;background:#fff;direction:rtl;font-family:Cairo,Arial,sans-serif;overflow:hidden;border-radius:14px';
 
-  var titleEl=document.createElement('div');
-  titleEl.style.cssText='font-size:20px;font-weight:800;margin-bottom:16px;color:#0D3E33;font-family:Tajawal,Cairo,sans-serif';
-  titleEl.textContent=screenTitleForExport();
-  wrapper.appendChild(titleEl);
+  var styleOverride=document.createElement('style');
+  styleOverride.textContent=
+    '.moe-report-tpl h3{color:#0CA868 !important}'+
+    '.moe-report-tpl .sq{background:#10A9A6 !important}'+
+    '.moe-report-tpl .stat-chip-main{background:#E7F7F5 !important;color:#0CA868 !important}'+
+    '.moe-report-tpl .honor-board{background:linear-gradient(135deg,#0C7A78,#10A9A6 60%,#38987F) !important}'+
+    '.moe-report-tpl .overview-hero{background:linear-gradient(120deg,#0C7A78,#10A9A6 55%,#38987F 100%) !important}'+
+    '.moe-report-tpl .hs-num{color:#0CA868 !important}'+
+    '.moe-report-tpl .badge.st-progress, .moe-report-tpl .perf-pill{background:#E7F7F5 !important;color:#0CA868 !important}';
+  wrapper.appendChild(styleOverride);
 
-  wrapper.appendChild(src.cloneNode(true));
+  var header=document.createElement('div');
+  header.style.cssText='background:linear-gradient(120deg,#0C7A78,#10A9A6 55%,#38987F 100%);padding:26px 30px 34px;position:relative;overflow:hidden';
+  header.innerHTML=
+    '<div style="position:absolute;inset:0;background:radial-gradient(circle at 88% 15%, rgba(255,255,255,.18), transparent 45%)"></div>'+
+    '<div style="position:relative;color:#fff;font-family:Tajawal,sans-serif;font-size:12px;opacity:.95">الإدارة العامة للتعليم بمنطقة المدينة المنورة</div>'+
+    '<div style="position:relative;color:#fff;font-family:Tajawal,sans-serif;font-size:21px;font-weight:800;margin-top:6px">'+esc(screenTitleForExport())+'</div>'+
+    '<div style="position:relative;color:#D9F2EF;font-size:11.5px;margin-top:4px">محافظة بدر — نظام متابعة التعليم</div>';
+  var waveSvg='<svg viewBox="0 0 1440 60" style="display:block;width:100%;height:22px;margin-top:-1px" preserveAspectRatio="none"><path d="M0,30 C360,70 1080,-10 1440,30 L1440,60 L0,60 Z" fill="#ffffff"></path></svg>';
+  header.innerHTML+=waveSvg;
+  wrapper.appendChild(header);
 
-  if(screenReportNotes.trim()){
-    var notesBox=document.createElement('div');
-    notesBox.style.cssText='margin-top:18px;padding:14px 16px;background:#E3EEE9;border-radius:10px;font-size:14px;white-space:pre-wrap;color:#182620;line-height:1.7';
-    var notesTitle=document.createElement('div');
-    notesTitle.style.cssText='font-weight:800;margin-bottom:6px;color:#145C4B;font-family:Tajawal,Cairo,sans-serif';
-    notesTitle.textContent='ملاحظات:';
-    notesBox.appendChild(notesTitle);
-    var notesText=document.createElement('div');
-    notesText.textContent=screenReportNotes;
-    notesBox.appendChild(notesText);
-    wrapper.appendChild(notesBox);
+  var body=document.createElement('div');
+  body.style.cssText='padding:6px 26px 20px';
+  wrapper.appendChild(body);
+
+  function appendTextBlock(blockTitle, blockBody){
+    var box=document.createElement('div');
+    box.style.cssText='margin:16px 0;padding:14px 16px;background:#E7F7F5;border-radius:10px;border-inline-start:4px solid #10A9A6';
+    if(blockTitle){
+      var th=document.createElement('div');
+      th.style.cssText='font-weight:800;margin-bottom:6px;color:#0C7A78;font-family:Tajawal,Cairo,sans-serif;font-size:15px';
+      th.textContent=blockTitle;
+      box.appendChild(th);
+    }
+    var tb=document.createElement('div');
+    tb.style.cssText='white-space:pre-wrap;font-size:13.5px;color:#182620;line-height:1.7';
+    tb.textContent=blockBody||'';
+    box.appendChild(tb);
+    body.appendChild(box);
   }
+
+  if(reportBuilderItems && reportBuilderScreenId===APP.view.id){
+    var freshBlocks=detectReportBlocks();
+    reportBuilderItems.forEach(function(item){
+      if(!item.include) return;
+      if(item.type==='block'){
+        var idx=parseInt(item.id.replace('block-',''),10);
+        var fresh=freshBlocks[idx];
+        if(fresh) body.appendChild(fresh.el.cloneNode(true));
+      }else if(item.type==='text'){
+        appendTextBlock(item.title, item.body);
+      }
+    });
+  }else{
+    body.appendChild(src.cloneNode(true));
+    if(screenReportNotes && screenReportNotes.trim()) appendTextBlock('ملاحظات', screenReportNotes);
+  }
+
+  var footer=document.createElement('div');
+  footer.style.cssText='margin-top:10px;padding:12px 26px;border-top:2px solid #10A9A6;color:#737373;font-size:11px;display:flex;justify-content:space-between;align-items:center';
+  footer.innerHTML='<span>نظام متابعة التعليم — محافظة بدر</span><span>'+new Date().toLocaleDateString('ar-SA')+'</span>';
+  wrapper.appendChild(footer);
 
   document.body.appendChild(wrapper);
   return wrapper;
