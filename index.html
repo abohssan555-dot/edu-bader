@@ -1215,6 +1215,73 @@ function reportContentStyleOverride(){
   return s;
 }
 /* يبني قائمة عُقَد DOM منفصلة، عُقدة لكل جزء مُدرَج في التقرير (بلا رأس/تذييل) */
+/* حساب مساحة الصفحة القابلة للاستخدام بوحدة بكسل (بنفس مقياس widthPx) لضبط حجم أجزاء الجدول بدقة */
+function pdfPageBudgetPx(widthPx){
+  var pageW=210, pageH=297, sideMargin=12;
+  var headerRatio=319/1400*0.62, footerRatio=190/1400*0.55;
+  var headerH_mm=pageW*headerRatio, footerH_mm=pageW*footerRatio;
+  var TOP_GAP_MM=6, BOTTOM_GAP_MM=10; // سطر واحد أعلى، وسطران أسفل
+  var contentW_mm=pageW-2*sideMargin;
+  var usableH_mm=(pageH-footerH_mm-BOTTOM_GAP_MM)-(headerH_mm+TOP_GAP_MM);
+  return Math.floor(usableH_mm*(widthPx/contentW_mm));
+}
+/* إذا كان القسم يحتوي جدولاً أطول من صفحة واحدة، يُقسَّم بحسب الارتفاع الحقيقي المقاس لكل صف (وليس عدداً ثابتاً)،
+   بحيث يتّسع كل جزء ضمن صفحة واحدة تماماً، وتتكرر رؤوس الجدول في بداية كل جزء تالٍ */
+function splitOversizedTableNode(node, widthPx){
+  var table=node.querySelector('table');
+  if(!table) return [node];
+  var tbody=table.querySelector('tbody');
+  if(!tbody || !tbody.rows.length) return [node];
+
+  var budgetPx=pdfPageBudgetPx(widthPx);
+
+  var probe=node.cloneNode(true);
+  probe.style.position='fixed'; probe.style.left='-99999px'; probe.style.top='0';
+  document.body.appendChild(probe);
+  var probeTable=probe.querySelector('table');
+  var probeThead=probeTable.querySelector('thead');
+  var probeTbody=probeTable.querySelector('tbody');
+  var theadH=probeThead?probeThead.offsetHeight:0;
+  var tableWrapEl=probeTable.closest('.table-wrap')||probeTable;
+  var nodeRect=probe.getBoundingClientRect();
+  var wrapRect=tableWrapEl.getBoundingClientRect();
+  var preTableH=Math.max(0, wrapRect.top-nodeRect.top);
+  var rowHeights=Array.prototype.slice.call(probeTbody.rows).map(function(r){ return r.offsetHeight; });
+  var totalContentH=preTableH+theadH+rowHeights.reduce(function(a,b){return a+b;},0);
+  document.body.removeChild(probe);
+
+  if(totalContentH<=budgetPx) return [node]; // يتّسع بالكامل ضمن صفحة واحدة، لا حاجة للتقسيم
+
+  var rows=Array.prototype.slice.call(tbody.rows);
+  var chunks=[];
+  var i=0;
+  while(i<rows.length){
+    var isFirst=chunks.length===0;
+    var budget=budgetPx-theadH-(isFirst?preTableH:0);
+    var used=0, count=0;
+    while(i+count<rows.length && (used+rowHeights[i+count])<=budget){
+      used+=rowHeights[i+count]; count++;
+    }
+    if(count===0) count=1; // صف واحد على الأقل حتى لو تجاوز الميزانية، لتفادي حلقة لا نهائية
+    var slice=rows.slice(i, i+count);
+    var clone=node.cloneNode(true);
+    var cTable=clone.querySelector('table');
+    var cTbody=cTable.querySelector('tbody');
+    cTbody.innerHTML='';
+    slice.forEach(function(r){ cTbody.appendChild(r.cloneNode(true)); });
+    if(!isFirst){
+      var styleTag=clone.querySelector('style');
+      var tableWrap=cTable.closest('.table-wrap')||cTable;
+      clone.innerHTML='';
+      if(styleTag) clone.appendChild(styleTag);
+      clone.appendChild(tableWrap);
+    }
+    clone.setAttribute('data-atomic','1');
+    chunks.push(clone);
+    i+=count;
+  }
+  return chunks;
+}
 function getReportContentNodes(widthPx){
   var src=document.getElementById('screenCaptureArea');
   if(!src) return [];
@@ -1261,37 +1328,8 @@ function getReportContentNodes(widthPx){
     if(screenReportNotes && screenReportNotes.trim()) nodes.push(textNode('ملاحظات', screenReportNotes));
   }
   var expanded=[];
-  nodes.forEach(function(n){ expanded=expanded.concat(splitOversizedTableNode(n)); });
+  nodes.forEach(function(n){ expanded=expanded.concat(splitOversizedTableNode(n, widthPx)); });
   return expanded;
-}
-/* إذا كان القسم يحتوي جدولاً طويلاً جداً، يُقسَّم إلى أجزاء بحجم صفحة، وكل جزء يحمل صف رؤوس الجدول مكرَّراً بدل تصغير الجدول كاملاً */
-function splitOversizedTableNode(node){
-  var table=node.querySelector('table');
-  if(!table) return [node];
-  var tbody=table.querySelector('tbody');
-  if(!tbody || tbody.rows.length<=16) return [node];
-  var rows=Array.prototype.slice.call(tbody.rows);
-  var ROWS_PER_CHUNK=16;
-  var chunks=[];
-  for(var i=0;i<rows.length;i+=ROWS_PER_CHUNK){
-    var slice=rows.slice(i, i+ROWS_PER_CHUNK);
-    var clone=node.cloneNode(true);
-    var cTable=clone.querySelector('table');
-    var cTbody=cTable.querySelector('tbody');
-    cTbody.innerHTML='';
-    slice.forEach(function(r){ cTbody.appendChild(r.cloneNode(true)); });
-    if(i>0){
-      // في الأجزاء التالية (غير الأول)، أبقِ فقط على الجدول نفسه واحذف أي عنوان/نص تمهيدي متكرر
-      var styleTag=clone.querySelector('style');
-      var tableWrap=cTable.closest('.table-wrap')||cTable;
-      clone.innerHTML='';
-      if(styleTag) clone.appendChild(styleTag);
-      clone.appendChild(tableWrap);
-    }
-    clone.setAttribute('data-atomic','1');
-    chunks.push(clone);
-  }
-  return chunks;
 }
 var reportApproverName=null, reportApproverNameScreenId=null;
 var reportApproverSignature=null, reportApproverSignatureScreenId=null;
@@ -1334,14 +1372,16 @@ function captureAllReportPieces(widthPx){
 }
 function exportScreenPdf(){
   toast('جارٍ تجهيز ملف PDF...');
-  var pageW=210, pageH=297, sideMargin=12, gap=6;
+  var pageW=210, pageH=297, sideMargin=12;
+  var TOP_GAP=6, BOTTOM_GAP=10; // سطر واحد أعلى الصفحة، وسطران أسفلها
+  var interBlockGap=6;
   var widthPx=1000;
   captureAllReportPieces(widthPx).then(function(acc){
     var pdf=new window.jspdf.jsPDF('p','mm','a4');
     var headerH=pageW*(acc.header.height/acc.header.width);
     var footerH=pageW*(acc.footer.height/acc.footer.width);
-    var contentTop=headerH+gap;
-    var contentBottom=pageH-footerH-gap;
+    var contentTop=headerH+TOP_GAP;
+    var contentBottom=pageH-footerH-BOTTOM_GAP;
     var usableH=contentBottom-contentTop;
     var contentW=pageW-2*sideMargin;
 
@@ -1375,7 +1415,7 @@ function exportScreenPdf(){
         }
         if(cursorY+imgH>contentBottom){ pdf.addPage(); drawHeaderFooter(); cursorY=contentTop; }
         pdf.addImage(canvas.toDataURL('image/png'),'PNG',sideMargin,cursorY,contentW,imgH);
-        cursorY+=imgH+gap;
+        cursorY+=imgH+interBlockGap;
         return;
       }
 
@@ -1386,7 +1426,7 @@ function exportScreenPdf(){
         var remH=contentW*(remaining.height/remaining.width);
         if(remH<=availableH){
           pdf.addImage(remaining.toDataURL('image/png'),'PNG',sideMargin,cursorY,contentW,remH);
-          cursorY+=remH+gap;
+          cursorY+=remH+interBlockGap;
           remaining=null;
         }else if(availableH<15){
           // لا مساحة كافية لبدء أي جزء مفيد في هذه الصفحة
