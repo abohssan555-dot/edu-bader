@@ -1034,10 +1034,10 @@ function renderScreenExportToolbar(){
   html+='<div class="field" style="margin-top:8px"><label class="small muted">عنوان التقرير (يظهر داخل التقرير، وسط الصفحة)</label>'+
     '<input type="text" id="reportBodyTitleInput" value="'+esc(currentReportBodyTitle())+'"></div>';
   if(reportBuilderOpen){
-    ensureReportBuilderInit();
     html+='<div class="report-builder">';
     html+='<div class="small muted" style="margin:8px 0">فعّل/عطّل الأجزاء التي تظهر بالتقرير، رتّبها بالأسهم، وأضف نصوصاً بعناوين في أي موقع تريده.</div>';
-    reportBuilderItems.forEach(function(item, i){
+    var itemsForRender=(reportBuilderItems && reportBuilderScreenId===APP.view.id) ? reportBuilderItems : [];
+    itemsForRender.forEach(function(item, i){
       html+='<div class="rb-item">';
       html+='<label class="flexrow" style="flex:1"><input type="checkbox" data-rbtoggle="'+i+'" '+(item.include?'checked':'')+'>';
       if(item.type==='text'){
@@ -1049,7 +1049,7 @@ function renderScreenExportToolbar(){
       html+='</label>';
       html+='<div class="rb-actions">'+
         '<button type="button" class="btn btn-sm" data-rbup="'+i+'" '+(i===0?'disabled':'')+'>▲</button>'+
-        '<button type="button" class="btn btn-sm" data-rbdown="'+i+'" '+(i===reportBuilderItems.length-1?'disabled':'')+'>▼</button>'+
+        '<button type="button" class="btn btn-sm" data-rbdown="'+i+'" '+(i===itemsForRender.length-1?'disabled':'')+'>▼</button>'+
         (item.type==='text' ? '<button type="button" class="btn btn-sm" data-rbdel="'+i+'">🗑</button>' : '')+
       '</div></div>';
     });
@@ -1065,8 +1065,17 @@ function renderScreenExportToolbar(){
   return html;
 }
 function bindScreenExportToolbar(){
+  /* الفحص والاكتشاف يحدثان هنا فقط (بعد إدراج DOM الفعلي للشاشة الحالية)، وليس أثناء بناء نص الـHTML */
+  if(reportBuilderOpen && (reportBuilderItems===null || reportBuilderScreenId!==APP.view.id)){
+    ensureReportBuilderInit();
+    render();
+    return;
+  }
   var tb=document.getElementById('btnToggleReportBuilder');
-  if(tb) tb.onclick=function(){ reportBuilderOpen=!reportBuilderOpen; render(); };
+  if(tb) tb.onclick=function(){
+    if(!reportBuilderOpen){ reportBuilderItems=null; } // أعد الاكتشاف من الصفر عند كل فتح لضمان مطابقة الشاشة الحالية
+    reportBuilderOpen=!reportBuilderOpen; render();
+  };
 
   var deptInp=document.getElementById('reportHeaderDeptInput');
   if(deptInp) deptInp.oninput=function(){ reportHeaderDept=deptInp.value; reportHeaderDeptScreenId=APP.view.id; };
