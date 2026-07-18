@@ -1024,6 +1024,7 @@ function renderContent(){
   if(v==='gap_analysis') return renderGapAnalysisView();
   if(v==='admin_school_mgmt') return renderAdminSchoolMgmtView();
   if(v==='school_principals') return renderPrincipalsView();
+  if(v==='sector_info') return renderSectorInfoView();
   if(v==='archive') return renderArchiveView();
   if(v==='reports') return renderReportsView();
   if(v==='users') return isAdmin()? renderUsersView() : '<div class="panel">لا تملك صلاحية الوصول لهذه الصفحة.</div>';
@@ -1039,6 +1040,7 @@ function bindContentEvents(){
   if(v==='gap_analysis') return;
   if(v==='admin_school_mgmt') return bindAdminSchoolMgmtEvents();
   if(v==='school_principals') return;
+  if(v==='sector_info') return;
   if(v==='archive') return bindArchiveEvents();
   if(v==='reports') return bindReportsEvents();
   if(v==='users') return bindUsersEvents();
@@ -2470,6 +2472,52 @@ function computeGapAnalysis(){
 function canEditAdminScreen(){
   return isAdmin() || currentRole()==='editor' || currentRole()==='admin_supervisor';
 }
+/* ================= معلومات عامة عن القطاع (شاشة محسوبة تلقائياً من البيانات الموجودة) ================= */
+function renderSectorInfoView(){
+  var db=APP.db;
+  var schools=db.schools.filter(function(s){return !s.archived;});
+  var totalStudents=0, maleStudents=0, femaleStudents=0, maleTeachers=0, femaleTeachers=0, maleAdmins=0, femaleAdmins=0;
+  schools.forEach(function(s){
+    if(s.countBasis==='مكرر') return;
+    var st=parseFloat(s.studentsCount)||0, te=parseFloat(s.teachersCount)||0, ad=parseFloat(s.adminAssistantCount)||0;
+    totalStudents+=st;
+    if(s.gender==='بنين'){ maleStudents+=st; maleTeachers+=te; maleAdmins+=ad; }
+    else if(s.gender==='بنات'){ femaleStudents+=st; femaleTeachers+=te; femaleAdmins+=ad; }
+  });
+  var boysSchools=schools.filter(function(s){return s.gender==='بنين';}).length;
+  var girlsSchools=schools.filter(function(s){return s.gender==='بنات';}).length;
+  var kindergartens=schools.filter(function(s){return s.stage==='رياض أطفال';}).length;
+
+  var malePrincipals={}, femalePrincipals={};
+  schools.forEach(function(s){
+    var p=(s.principal||'').trim();
+    if(!p) return;
+    if(s.gender==='بنين') malePrincipals[p]=true;
+    else if(s.gender==='بنات') femalePrincipals[p]=true;
+  });
+
+  var html='<div class="panel">';
+  html+='<div class="small muted" style="margin-bottom:14px">هذه الأرقام كلها محسوبة تلقائياً من "بيانات المدارس" — لا تحتاج إدخالاً منفصلاً، وتتحدّث فوراً مع أي تعديل هناك.</div>';
+  html+='<div class="hero-stats-grid">';
+  html+=heroStat('🏫','إجمالي المدارس', schools.length, '');
+  html+=heroStat('👦','مدارس بنين', boysSchools, 'blue');
+  html+=heroStat('👧','مدارس بنات', girlsSchools, 'blue');
+  html+=heroStat('🧸','رياض الأطفال', kindergartens, 'gold');
+  html+=heroStat('👥','إجمالي الطلاب', totalStudents, 'green');
+  html+=heroStat('👦','الطلاب (بنين)', maleStudents, 'blue');
+  html+=heroStat('👧','الطالبات (بنات)', femaleStudents, 'blue');
+  html+=heroStat('🍎','المعلمون', maleTeachers, '');
+  html+=heroStat('🍏','المعلمات', femaleTeachers, '');
+  html+=heroStat('👨‍💼','المدراء', Object.keys(malePrincipals).length, '');
+  html+=heroStat('👩‍💼','المديرات', Object.keys(femalePrincipals).length, '');
+  html+=heroStat('🧑‍💻','الإداريون', maleAdmins, '');
+  html+=heroStat('👩‍💻','الإداريات', femaleAdmins, '');
+  html+='</div>';
+  html+='<div class="small muted">* "عدد برامج التربية الخاصة" و"متوسط الكثافة الطلابية" يحتاجان بيانات إضافية (عدد الفصول، وبرامج التربية الخاصة) غير متوفرة حالياً في "بيانات المدارس" — أخبرني إذا رغبت بإضافتهما لاحقاً.</div>';
+  html+='</div>';
+  return html;
+}
+
 /* ================= مديرو المدارس (شاشة محسوبة تلقائياً من حقل "اسم المدير/ة") ================= */
 function renderPrincipalsView(){
   var db=APP.db;
