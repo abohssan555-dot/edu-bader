@@ -29,10 +29,10 @@
   --ok-soft:#E4F1E7;
   --orange:#C1690E;
   --orange-soft:#FBE9D6;
-  --perf-excellent:#D9F0DE;
-  --perf-excellent-ink:#1D7A3C;
-  --perf-advanced:#D6E7FA;
-  --perf-advanced-ink:#1C5FA8;
+  --perf-excellent:#BFEBCE;
+  --perf-excellent-ink:#0F7A38;
+  --perf-advanced:#BEDBF9;
+  --perf-advanced-ink:#125FB5;
   --perf-developing:#FDE7BE;
   --perf-developing-ink:#E08E1D;
   --perf-initial:#F9D3CE;
@@ -3030,8 +3030,8 @@ function renderSectorInfoView(){
   html+=heroStat('👥','إجمالي الطلاب', totalStudents, 'green');
   html+=heroStat('👦','الطلاب (بنين)', maleStudents, 'blue');
   html+=heroStat('👧','الطالبات (بنات)', femaleStudents, 'blue');
-  html+=heroStat('👨‍🏫','المعلمون', maleTeachers, '');
-  html+=heroStat('👩‍🏫','المعلمات', femaleTeachers, '');
+  html+=heroStat('👨','المعلمون', maleTeachers, '');
+  html+=heroStat('👩','المعلمات', femaleTeachers, '');
   html+=heroStat('👨‍💼','المدراء', Object.keys(malePrincipals).length, '');
   html+=heroStat('👩‍💼','المديرات', Object.keys(femalePrincipals).length, '');
   html+=heroStat('🧑‍💻','الإداريون', maleAdmins, '');
