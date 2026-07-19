@@ -1727,6 +1727,21 @@ function renderCalendarStatsPanel(records){
   return html;
 }
 
+/* يحسب "مستقلة/مشتركة" حيّاً لكل مدرسة بناءً على تجميع كل مدارس القطاع حسب اسم المدير/ة (وليس من حقل مخزَّن قد يكون غير محدَّث) */
+function computeLiveAdminTypeMap(){
+  var byPrincipal={};
+  APP.db.schools.filter(function(s){return !s.archived;}).forEach(function(s){
+    var p=(s.principal||'').trim();
+    if(p){ (byPrincipal[p]=byPrincipal[p]||[]).push(s); }
+  });
+  var map={};
+  Object.keys(byPrincipal).forEach(function(p){
+    var group=byPrincipal[p];
+    var type = group.length>1 ? 'مشتركة' : 'مستقلة';
+    group.forEach(function(s){ map[s.id]=type; });
+  });
+  return map;
+}
 function renderSchoolsStatsPanel(records){
   var total=records.length;
   var byStage={'رياض أطفال':0,'ابتدائي':0,'متوسط':0,'ثانوي':0,'متعدد المراحل':0};
@@ -1772,7 +1787,7 @@ function renderSchoolsStatsPanel(records){
       var ad=parseFloat(r.adminAssistantCount); if(!isNaN(ad)) totalAdmins+=ad;
     }
   });
-  var filt = moduleFilters['schools'] || {gender:'', stage:'', perf:''};
+  var filt = moduleFilters['schools'] || {gender:'', stage:'', perf:'', adminType:''};
   moduleFilters['schools']=filt;
   function chipBtn(key, val, label, count, mainCls){
     var active = filt[key]===val;
@@ -1789,9 +1804,9 @@ function renderSchoolsStatsPanel(records){
   html+='</div>';
   html+='<div class="stats-compact-bar" style="margin-top:6px">';
   html+='<span class="stat-chip">👤 عدد المدراء/المديرات: <b>'+distinctPrincipals+'</b></span>';
-  html+='<span class="stat-chip">مستقلة الإدارة: <b>'+independentCount+'</b></span>';
-  html+='<span class="stat-chip">مشتركة الإدارة: <b>'+sharedSchoolsCount+'</b> ('+sharedGroupsCount+' مجمّع)</span>';
-  if(noPrincipalCount) html+='<span class="stat-chip">بلا اسم مدير مُدخل: <b>'+noPrincipalCount+'</b></span>';
+  html+=chipBtn('adminType','مستقلة','مستقلة الإدارة', independentCount);
+  html+='<button type="button" class="stat-chip'+(filt.adminType==='مشتركة'?' active':'')+'" data-schoolfilter="adminType" data-val="مشتركة">مشتركة الإدارة: <b>'+sharedSchoolsCount+'</b> ('+sharedGroupsCount+' مجمّع)</button>';
+  if(noPrincipalCount) html+='<button type="button" class="stat-chip'+(filt.noPrincipal?' active':'')+'" data-schoolfilter="noPrincipal" data-val="1">بلا اسم مدير مُدخل: <b>'+noPrincipalCount+'</b></button>';
   html+='<span class="stat-sep"></span>';
   html+='<span class="stat-chip">إجمالي الطلاب (المُدخل): <b>'+totalStudents+'</b></span>';
   html+='<span class="stat-chip">إجمالي المعلمين (المُدخل): <b>'+totalTeachers+'</b></span>';
@@ -1894,10 +1909,17 @@ function renderModuleView(modId){
   var hasGenderField = mod.fields.some(function(f){return f.key==='gender';});
   var hasStageField = mod.fields.some(function(f){return f.key==='stage';});
   var hasPerfField = mod.fields.some(function(f){return f.key==='currentPerformance';});
-  var filt = moduleFilters[modId] || {gender:'', stage:'', perf:''};
+  var filt = moduleFilters[modId] || {gender:'', stage:'', perf:'', adminType:''};
   moduleFilters[modId]=filt;
   if(hasGenderField && filt.gender) records=records.filter(function(r){return r.gender===filt.gender;});
   if(hasStageField && filt.stage) records=records.filter(function(r){return r.stage===filt.stage;});
+  if(modId==='schools' && filt.adminType){
+    var liveAdminMap=computeLiveAdminTypeMap();
+    records=records.filter(function(r){return liveAdminMap[r.id]===filt.adminType;});
+  }
+  if(modId==='schools' && filt.noPrincipal){
+    records=records.filter(function(r){return !(r.principal||'').trim();});
+  }
   if(hasPerfField && filt.perf){
     if(filt.perf==='__none__') records=records.filter(function(r){return !r.currentPerformance || r.currentPerformance==='لا يوجد';});
     else records=records.filter(function(r){return r.currentPerformance===filt.perf;});
