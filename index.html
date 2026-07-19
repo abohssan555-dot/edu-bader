@@ -1717,10 +1717,11 @@ function renderCalendarStatsPanel(records){
   });
   var distinctSchools=Object.keys(schoolsWithReport).length;
   var totalSchools=db.schools.filter(function(s){return !s.archived;}).length;
+  var filt=moduleFilters['calendar']||{calType:''};
   var html='<div class="stats-compact-bar">';
   html+='<span class="stat-chip stat-chip-main">📋 إجمالي تقارير التقويم: <b>'+total+'</b></span>';
-  html+='<span class="stat-chip">ذاتي: <b>'+byType['ذاتي']+'</b></span>';
-  html+='<span class="stat-chip">خارجي: <b>'+byType['خارجي']+'</b></span>';
+  html+='<button type="button" class="stat-chip'+(filt.calType==='ذاتي'?' active':'')+'" data-calfilter="ذاتي">ذاتي: <b>'+byType['ذاتي']+'</b></button>';
+  html+='<button type="button" class="stat-chip'+(filt.calType==='خارجي'?' active':'')+'" data-calfilter="خارجي">خارجي: <b>'+byType['خارجي']+'</b></button>';
   html+='<span class="stat-chip">مدارس لها تقرير مرصود: <b>'+distinctSchools+'</b> من أصل '+totalSchools+'</span>';
   if(latest) html+='<span class="stat-chip">أحدث تقويم مُسجَّل: <b>'+fmtDate(latest)+'</b></span>';
   html+='</div>';
@@ -1830,13 +1831,18 @@ function renderPerfStatsPanel(records){
     if(byPerf.hasOwnProperty(r.currentPerformance)) byPerf[r.currentPerformance]++;
     else if(!r.currentPerformance || r.currentPerformance==='لا يوجد') noReport++;
   });
+  var filt=moduleFilters['school_performance']||{gender:'', stage:'', perf:''};
+  function chipBtn(key, val, label, count, mainCls){
+    var active=filt[key]===val;
+    return '<button type="button" class="stat-chip'+(mainCls?' stat-chip-main':'')+(active?' active':'')+'" data-perfstatfilter="'+key+'" data-val="'+esc(val)+'">'+label+': <b>'+count+'</b></button>';
+  }
   var html='<div class="stats-compact-bar">';
   html+='<span class="stat-chip stat-chip-main">📚 الإجمالي: <b>'+total+'</b></span>';
-  html+='<span class="stat-chip">ابتدائي: <b>'+byStage['ابتدائي']+'</b></span>';
-  html+='<span class="stat-chip">متوسط: <b>'+byStage['متوسط']+'</b></span>';
-  html+='<span class="stat-chip">ثانوي: <b>'+byStage['ثانوي']+'</b></span>';
-  html+='<span class="stat-chip">بنين: <b>'+byGender['بنين']+'</b></span>';
-  html+='<span class="stat-chip">بنات: <b>'+byGender['بنات']+'</b></span>';
+  html+=chipBtn('stage','ابتدائي','ابتدائي', byStage['ابتدائي']);
+  html+=chipBtn('stage','متوسط','متوسط', byStage['متوسط']);
+  html+=chipBtn('stage','ثانوي','ثانوي', byStage['ثانوي']);
+  html+=chipBtn('gender','بنين','بنين', byGender['بنين']);
+  html+=chipBtn('gender','بنات','بنات', byGender['بنات']);
   html+='</div>';
   html+='<div class="stats-compact-bar" style="margin-top:6px">';
   html+='<span class="small muted">حسب نتيجة آخر تقويم:</span>';
@@ -1919,6 +1925,9 @@ function renderModuleView(modId){
   }
   if(modId==='schools' && filt.noPrincipal){
     records=records.filter(function(r){return !(r.principal||'').trim();});
+  }
+  if(modId==='calendar' && filt.calType){
+    records=records.filter(function(r){return r.calType===filt.calType;});
   }
   if(hasPerfField && filt.perf){
     if(filt.perf==='__none__') records=records.filter(function(r){return !r.currentPerformance || r.currentPerformance==='لا يوجد';});
@@ -2095,8 +2104,22 @@ function bindModuleEvents(modId){
   });
   var fs=document.getElementById('filterStage');
   if(fs) fs.onchange=function(){ filt.stage=fs.value; render(); };
+  document.querySelectorAll('[data-perfstatfilter]').forEach(function(b){
+    b.onclick=function(){
+      var key=b.dataset.perfstatfilter, val=b.dataset.val;
+      filt[key] = (filt[key]===val) ? '' : val;
+      render();
+    };
+  });
   document.querySelectorAll('[data-perf]').forEach(function(b){
     b.onclick=function(){ filt.perf=b.dataset.perf; render(); };
+  });
+  document.querySelectorAll('[data-calfilter]').forEach(function(b){
+    b.onclick=function(){
+      var val=b.dataset.calfilter;
+      filt.calType = (filt.calType===val) ? '' : val;
+      render();
+    };
   });
 
   var addBtn=document.getElementById('btnAdd');
@@ -3113,14 +3136,56 @@ function renderPrincipalsView(){
 
 function renderAdminSchoolMgmtView(){
   var db=APP.db;
-  var schools=db.schools.filter(function(s){return !s.archived;}).slice().sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''),'ar');});
+  var allSchools=db.schools.filter(function(s){return !s.archived;});
+  var filt=moduleFilters['admin_school_mgmt']||{gender:'', stage:'', adminType:''};
+  var q=(moduleSearch['admin_school_mgmt']||'').trim().toLowerCase();
+  var liveAdminMap=computeLiveAdminTypeMap();
+
+  var schools=allSchools.filter(function(s){
+    if(q && s.name.toLowerCase().indexOf(q)<0) return false;
+    if(filt.gender && s.gender!==filt.gender) return false;
+    if(filt.stage && s.stage!==filt.stage) return false;
+    if(filt.adminType && liveAdminMap[s.id]!==filt.adminType) return false;
+    return true;
+  }).sort(function(a,b){return String(a.name||'').localeCompare(String(b.name||''),'ar');});
+
+  var byStage={'رياض أطفال':0,'ابتدائي':0,'متوسط':0,'ثانوي':0,'متعدد المراحل':0};
+  var byGender={'بنين':0,'بنات':0};
+  var independentCount=0, sharedCount=0;
+  allSchools.forEach(function(s){
+    if(byStage.hasOwnProperty(s.stage)) byStage[s.stage]++;
+    if(byGender.hasOwnProperty(s.gender)) byGender[s.gender]++;
+    if(liveAdminMap[s.id]==='مشتركة') sharedCount++; else if(liveAdminMap[s.id]==='مستقلة') independentCount++;
+  });
+  function chipBtn(key, val, label, count){
+    var active=filt[key]===val;
+    return '<button type="button" class="stat-chip'+(active?' active':'')+'" data-adminmgmtfilter="'+key+'" data-val="'+esc(val)+'">'+label+': <b>'+count+'</b></button>';
+  }
+
   var html='<div class="panel">';
   html+='<div class="small muted" style="margin-bottom:14px">شاشة مخصصة لمهام مشرف الإدارة المدرسية: الوكيل، الموجّه الطلابي، المساعد الإداري، نوع الإدارة، ونسبة مجال الإدارة المدرسية — نفس البيانات الظاهرة في "بيانات المدارس" و"الأداء المدرسي"، معروضة هنا في مكان واحد. أي تعديل هنا ينعكس فوراً في تلك الشاشات لأنها نفس السجلات الحقيقية.</div>';
+
+  html+='<div class="stats-compact-bar" style="margin-bottom:10px">';
+  html+='<span class="stat-chip stat-chip-main">🏫 الإجمالي: <b>'+allSchools.length+'</b></span>';
+  html+=chipBtn('stage','رياض أطفال','رياض أطفال', byStage['رياض أطفال']);
+  html+=chipBtn('stage','ابتدائي','ابتدائي', byStage['ابتدائي']);
+  html+=chipBtn('stage','متوسط','متوسط', byStage['متوسط']);
+  html+=chipBtn('stage','ثانوي','ثانوي', byStage['ثانوي']);
+  html+=chipBtn('gender','بنين','بنين', byGender['بنين']);
+  html+=chipBtn('gender','بنات','بنات', byGender['بنات']);
+  html+=chipBtn('adminType','مستقلة','مستقلة الإدارة', independentCount);
+  html+=chipBtn('adminType','مشتركة','مشتركة الإدارة', sharedCount);
+  html+='</div>';
+
+  html+='<div class="toolbar" style="margin-bottom:12px">'+
+    '<input type="text" id="adminMgmtSearch" placeholder="ابحث باسم المدرسة..." value="'+esc(moduleSearch['admin_school_mgmt']||'')+'" style="min-width:220px">'+
+  '</div>';
+
   html+='<div class="table-wrap"><table class="data table-compact"><thead><tr>'+
     '<th class="num-col">م</th><th>المدرسة</th><th>المرحلة</th><th>النوع</th><th>الوكيل/الوكيلة</th><th>الموجه/الموجهة</th><th>المساعد الإداري</th><th>إدارة المدرسة</th><th>نسبة مجال الإدارة المدرسية</th><th>إجراءات</th>'+
     '</tr></thead><tbody>';
   if(!schools.length){
-    html+='<tr class="empty-row"><td colspan="10">لا توجد مدارس بعد.</td></tr>';
+    html+='<tr class="empty-row"><td colspan="10">لا توجد مدارس مطابقة — جرّب تعديل البحث أو الفلاتر.</td></tr>';
   }else{
     schools.forEach(function(s, i){
       var perf=db.records.find(function(r){return r.category==='school_performance' && !r.archived && r.schoolId===s.id;});
@@ -3137,6 +3202,20 @@ function renderAdminSchoolMgmtView(){
   return html;
 }
 function bindAdminSchoolMgmtEvents(){
+  var filt=moduleFilters['admin_school_mgmt']||{gender:'', stage:'', adminType:''};
+  moduleFilters['admin_school_mgmt']=filt;
+  var search=document.getElementById('adminMgmtSearch');
+  if(search) search.oninput=function(){
+    moduleSearch['admin_school_mgmt']=search.value; render();
+    setTimeout(function(){ var i=document.getElementById('adminMgmtSearch'); if(i){ i.focus(); i.setSelectionRange(i.value.length,i.value.length); } },0);
+  };
+  document.querySelectorAll('[data-adminmgmtfilter]').forEach(function(b){
+    b.onclick=function(){
+      var key=b.dataset.adminmgmtfilter, val=b.dataset.val;
+      filt[key] = (filt[key]===val) ? '' : val;
+      render();
+    };
+  });
   document.querySelectorAll('[data-editadmin]').forEach(function(b){
     b.onclick=function(){ openAdminSchoolMgmtModal(b.dataset.editadmin); };
   });
