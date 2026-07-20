@@ -503,7 +503,19 @@ var CATEGORIES = [
   {id:'development', section:'internal', group:null, label:'التطوير المهني', fields:issueFields([T.text('program','اسم البرنامج التدريبي')])},
   {id:'other_internal', section:'internal', group:null, label:'قضايا تعليمية أخرى', fields:issueFields()},
 
-  {id:'national_events', section:'shared', group:null, label:'المناسبات الوطنية', fields:issueFields([T.text('eventName','اسم المناسبة')])},
+  {id:'national_events', section:'shared', group:null, label:'المناسبات الوطنية والعالمية', fields:[
+    T.select('eventName','المناسبة',[
+      'اليوم الوطني السعودي','يوم التأسيس السعودي','يوم السعودية الخضراء','يوم العلم السعودي',
+      'اليوم العالمي للصحة','اليوم العالمي للتعلم','يوم اللغة العربية العالمي','اليوم العالمي للتسامح',
+      'اليوم العالمي للطفل','اليوم العالمي لذوي الإعاقة','يوم المعلم العالمي','اليوم الدولي للأسرة','أخرى'
+    ], true),
+    T.date('eventDate','التاريخ'),
+    T.school('schoolId','المدرسة المشاركة'),
+    T.text('responsible','مسؤول التنفيذ'),
+    T.select('participationLevel','طبيعة المشاركة',['على مستوى المدرسة','على مستوى القطاع']),
+    T.select('achievementLevel','مستوى الإنجاز',['منخفض','متوسط','مرتفع']),
+    T.textarea('notes','ملاحظات')
+  ]},
   {id:'community_partnership', section:'shared', group:null, label:'الشراكة المجتمعية', fields:issueFields([T.text('partner','الجهة الشريكة')])},
   {id:'other_shared', section:'shared', group:null, label:'أخرى', fields:issueFields([T.text('entity','الجهة المعنية')])},
 
