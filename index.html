@@ -195,6 +195,11 @@ button.stat-chip.active{background:var(--primary-soft);border-color:var(--primar
 .screen-export-panel textarea{width:100%;border:1px solid var(--border);border-radius:8px;padding:10px;font-family:inherit;font-size:13px;resize:vertical;margin-top:6px}
 .report-builder{border-top:1px solid var(--border);padding-top:10px}
 .rb-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px dashed var(--border)}
+.event-block{margin-bottom:18px}
+.event-banner{background:linear-gradient(120deg,#0C7A78,#10A9A6 60%,#38987F);border-radius:12px;padding:16px 20px;margin-bottom:14px;color:#fff}
+.event-banner-name{font-family:'Tajawal',sans-serif;font-size:17px;font-weight:800}
+.event-banner-date{font-size:13px;color:#E7F7F5;margin-top:4px;font-weight:700}
+.event-banner-desc{font-size:12.5px;color:#D9F2EF;margin-top:6px;line-height:1.6}
 .rb-item:last-of-type{border-bottom:none}
 .rb-actions{display:flex;gap:4px;flex-shrink:0}
 
@@ -1548,6 +1553,7 @@ function renderContent(){
   if(v==='admin_school_mgmt') return renderAdminSchoolMgmtView();
   if(v==='school_principals') return renderPrincipalsView();
   if(v==='sector_info') return renderSectorInfoView();
+  if(v==='national_events') return renderNationalEventsView();
   if(v==='archive') return renderArchiveView();
   if(v==='reports') return renderReportsView();
   if(v==='users') return isAdmin()? renderUsersView() : '<div class="panel">لا تملك صلاحية الوصول لهذه الصفحة.</div>';
@@ -1564,6 +1570,7 @@ function bindContentEvents(){
   if(v==='admin_school_mgmt') return bindAdminSchoolMgmtEvents();
   if(v==='school_principals') return;
   if(v==='sector_info') return;
+  if(v==='national_events') return bindNationalEventsEvents();
   if(v==='archive') return bindArchiveEvents();
   if(v==='reports') return bindReportsEvents();
   if(v==='users') return bindUsersEvents();
@@ -2246,12 +2253,12 @@ var NATIONAL_EVENT_FIXED_DATES={
   'يوم المعلم العالمي':{month:10, day:5},
   'اليوم الدولي للأسرة':{month:5, day:15}
 };
-async function openRecordModal(modId, recId){
+async function openRecordModal(modId, recId, presetData){
   var mod=getModule(modId);
   if(mod.fields.some(function(f){return f.type==='provider';}) && !APP.assignableCache){
     await loadAssignableCache();
   }
-  var rec = recId ? findRecord(modId, recId) : {};
+  var rec = recId ? findRecord(modId, recId) : Object.assign({}, presetData||{});
   var html='<h3>'+(recId?'تعديل سجل':'إضافة سجل جديد')+'</h3><div class="modal-sub">'+esc(mod.label)+'</div>';
   html+='<form id="recForm">';
   mod.fields.forEach(function(f){
@@ -3129,6 +3136,78 @@ function renderSectorInfoView(){
 }
 
 /* ================= مديرو المدارس (شاشة محسوبة تلقائياً من حقل "اسم المدير/ة") ================= */
+/* ================= المناسبات الوطنية والعالمية (عرض مجمّع لكل مناسبة بجدول مستقل) ================= */
+var NATIONAL_EVENT_DESC={
+  'اليوم الوطني السعودي':'ذكرى توحيد المملكة العربية السعودية على يد الملك عبدالعزيز آل سعود.',
+  'يوم التأسيس السعودي':'ذكرى تأسيس الدولة السعودية الأولى عام 1727م.',
+  'يوم السعودية الخضراء':'مناسبة للتوعية بالمبادرات البيئية وزراعة الأشجار.',
+  'يوم العلم السعودي':'احتفاء بعلم المملكة ورمزيته الوطنية.',
+  'اليوم العالمي للصحة':'مناسبة عالمية للتوعية بالصحة العامة، تحتفل بها منظمة الصحة العالمية.',
+  'اليوم العالمي للتعلم':'يوم لتعزيز أهمية التعليم والتعلم مدى الحياة.',
+  'يوم اللغة العربية العالمي':'احتفاء باللغة العربية أقرّته منظمة اليونسكو.',
+  'اليوم العالمي للتسامح':'مناسبة أممية للتوعية بقيم التسامح والتعايش.',
+  'اليوم العالمي للطفل':'مناسبة عالمية للاحتفاء بحقوق الطفل ورفاهيته.',
+  'اليوم العالمي لذوي الإعاقة':'مناسبة أممية للتوعية بحقوق ذوي الإعاقة ودمجهم.',
+  'يوم المعلم العالمي':'احتفاء عالمي بدور المعلمين أقرّته منظمة اليونسكو.',
+  'اليوم الدولي للأسرة':'مناسبة أممية للتوعية بأهمية الأسرة في المجتمع.'
+};
+var ARABIC_MONTHS=['','يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+function renderNationalEventsView(){
+  var db=APP.db;
+  var mod=getModule('national_events');
+  var eventNames=Object.keys(NATIONAL_EVENT_FIXED_DATES).sort(function(a,b){
+    var fa=NATIONAL_EVENT_FIXED_DATES[a], fb=NATIONAL_EVENT_FIXED_DATES[b];
+    var academicMonth=function(m){ return m>=9 ? m-9 : m+3; }; // ترتيب حسب بداية العام الدراسي (سبتمبر)
+    return academicMonth(fa.month)-academicMonth(fb.month) || fa.day-fb.day;
+  });
+  var otherRecords=db.records.filter(function(r){return r.category==='national_events' && !r.archived && !NATIONAL_EVENT_FIXED_DATES.hasOwnProperty(r.eventName);});
+  var otherEventNames=[];
+  otherRecords.forEach(function(r){ if(otherEventNames.indexOf(r.eventName)<0) otherEventNames.push(r.eventName); });
+
+  var html='';
+  eventNames.concat(otherEventNames).forEach(function(eventName){
+    var fixed=NATIONAL_EVENT_FIXED_DATES[eventName];
+    var dateLabel=fixed ? (fixed.day+' '+ARABIC_MONTHS[fixed.month]) : '';
+    var records=db.records.filter(function(r){return r.category==='national_events' && !r.archived && r.eventName===eventName;});
+    html+='<div class="panel event-block">';
+    html+='<div class="event-banner">'+
+      '<div class="event-banner-name">'+esc(eventName)+'</div>'+
+      (dateLabel?'<div class="event-banner-date">'+esc(dateLabel)+'</div>':'')+
+      (NATIONAL_EVENT_DESC[eventName]?'<div class="event-banner-desc">'+esc(NATIONAL_EVENT_DESC[eventName])+'</div>':'')+
+    '</div>';
+    html+='<div class="table-wrap"><table class="data table-compact"><thead><tr>'+
+      '<th class="num-col">م</th><th>المدرسة</th><th>مسؤول التنفيذ</th><th>طبيعة المشاركة</th><th>مستوى الإنجاز</th><th>ملاحظات</th><th>إجراءات</th>'+
+      '</tr></thead><tbody>';
+    if(!records.length){
+      html+='<tr class="empty-row"><td colspan="7">لا توجد مشاركات مسجَّلة بعد لهذه المناسبة.</td></tr>';
+    }else{
+      records.forEach(function(r, i){
+        var s=db.schools.find(function(x){return x.id===r.schoolId;});
+        html+='<tr><td class="num-col">'+(i+1)+'</td><td>'+(s?esc(s.name):'<span class="muted">—</span>')+'</td>'+
+          '<td>'+esc(r.responsible||'—')+'</td><td>'+esc(r.participationLevel||'—')+'</td>'+
+          '<td>'+(r.achievementLevel?('<span class="badge '+(r.achievementLevel==='مرتفع'?'st-active':r.achievementLevel==='متوسط'?'st-progress':'st-closed')+'"><span class="d"></span>'+esc(r.achievementLevel)+'</span>'):'—')+'</td>'+
+          '<td>'+esc(r.notes||'—')+'</td>'+
+          '<td class="flexrow">'+(canEdit()?('<button type="button" class="btn btn-sm" data-eventedit="'+r.id+'">✎</button><button type="button" class="btn btn-sm" data-eventarchive="'+r.id+'">🗄</button>'):'')+'</td></tr>';
+      });
+    }
+    html+='</tbody></table></div>';
+    if(canEdit()) html+='<div class="toolbar" style="margin-top:10px"><button type="button" class="btn btn-primary btn-sm" data-eventadd="'+esc(eventName)+'">➕ إضافة مشاركة مدرسة</button></div>';
+    html+='</div>';
+  });
+  return html;
+}
+function bindNationalEventsEvents(){
+  document.querySelectorAll('[data-eventedit]').forEach(function(b){
+    b.onclick=function(){ openRecordModal('national_events', b.dataset.eventedit); };
+  });
+  document.querySelectorAll('[data-eventarchive]').forEach(function(b){
+    b.onclick=function(){ archiveRecord('national_events', b.dataset.eventarchive, true); };
+  });
+  document.querySelectorAll('[data-eventadd]').forEach(function(b){
+    b.onclick=function(){ openRecordModal('national_events', null, {eventName:b.dataset.eventadd}); };
+  });
+}
+
 function renderPrincipalsView(){
   var db=APP.db;
   var schools=db.schools.filter(function(s){return !s.archived;});
