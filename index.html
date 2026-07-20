@@ -3241,9 +3241,9 @@ function renderNationalEventsView(){
     if(!nearest || d<nearest.days) nearest={name:name, days:d};
   });
   if(nearest){
-    html+='<div class="panel" style="background:linear-gradient(120deg,#0C7A78,#10A9A6);color:#fff;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px">'+
+    html+='<div class="panel" style="background:linear-gradient(120deg,#7CC98A,#A6E3A1);color:#0D3E33;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px">'+
       '<div style="font-size:26px">⏳</div>'+
-      '<div><div style="font-size:12px;opacity:.9">أقرب مناسبة قادمة</div>'+
+      '<div><div style="font-size:12px;opacity:.85">أقرب مناسبة قادمة</div>'+
       '<div style="font-family:Tajawal,sans-serif;font-weight:800;font-size:16px">'+esc(nearest.name)+' — بعد <span style="font-size:20px">'+nearest.days+'</span> يوم</div></div>'+
     '</div>';
   }
