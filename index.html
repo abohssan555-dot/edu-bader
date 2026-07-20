@@ -522,7 +522,16 @@ var CATEGORIES = [
     T.textarea('eventDescription','سطر تعريف المناسبة (يظهر في العنوان لكل سجلات هذه المناسبة)'),
     T.textarea('notes','ملاحظات')
   ]},
-  {id:'community_partnership', section:'shared', group:null, label:'الشراكة المجتمعية', fields:issueFields([T.text('partner','الجهة الشريكة')])},
+  {id:'community_partnership', section:'shared', group:null, label:'الشراكة المجتمعية', fields:[
+    T.text('activityName','الفعالية', true),
+    T.text('partnerEntity','الجهة المشاركة'),
+    T.school('schoolId','المدرسة'),
+    T.date('eventDate','التاريخ'),
+    T.text('responsible','مسؤول التنفيذ'),
+    T.select('participationLevel','طبيعة المشاركة',['على مستوى المدرسة','على مستوى القطاع']),
+    T.select('achievementLevel','مستوى الإنجاز',['منخفض','متوسط','مرتفع']),
+    T.textarea('notes','ملاحظات')
+  ]},
   {id:'other_shared', section:'shared', group:null, label:'أخرى', fields:issueFields([T.text('entity','الجهة المعنية')])},
 
   {id:'school_performance', section:'base', group:null, label:'الأداء المدرسي', fields:[
@@ -1949,6 +1958,13 @@ function renderModuleView(modId){
   if(modId==='calendar' && filt.calType){
     records=records.filter(function(r){return r.calType===filt.calType;});
   }
+  if(modId==='community_partnership'){
+    if(filt.cpSchool) records=records.filter(function(r){ var s=db.schools.find(function(x){return x.id===r.schoolId;}); return s && s.name===filt.cpSchool; });
+    if(filt.cpPartner) records=records.filter(function(r){return r.partnerEntity===filt.cpPartner;});
+    if(filt.cpActivity) records=records.filter(function(r){return r.activityName===filt.cpActivity;});
+    if(filt.cpLevel) records=records.filter(function(r){return r.participationLevel===filt.cpLevel;});
+    if(filt.cpAchv) records=records.filter(function(r){return r.achievementLevel===filt.cpAchv;});
+  }
   if(hasPerfField && filt.perf){
     if(filt.perf==='__none__') records=records.filter(function(r){return !r.currentPerformance || r.currentPerformance==='لا يوجد';});
     else records=records.filter(function(r){return r.currentPerformance===filt.perf;});
@@ -2001,6 +2017,22 @@ function renderModuleView(modId){
     html+='<select id="filterStage" class="search-box search-box-sm"><option value="">🎓 كل المراحل</option>'+
       ['رياض أطفال','ابتدائي','متوسط','ثانوي'].map(function(s){return '<option value="'+s+'" '+(filt.stage===s?'selected':'')+'>'+s+'</option>';}).join('')+
       '</select>';
+  }
+  if(modId==='community_partnership'){
+    var cpSchools=allRecords.map(function(r){var s=db.schools.find(function(x){return x.id===r.schoolId;}); return s?s.name:null;}).filter(Boolean);
+    var cpPartners=allRecords.map(function(r){return r.partnerEntity;}).filter(Boolean);
+    var cpActivities=allRecords.map(function(r){return r.activityName;}).filter(Boolean);
+    function uniq(arr){ return arr.filter(function(v,i){return arr.indexOf(v)===i;}).sort(function(a,b){return a.localeCompare(b,'ar');}); }
+    html+='<select id="filterCpSchool" class="search-box search-box-sm"><option value="">🏫 كل المدارس</option>'+
+      uniq(cpSchools).map(function(n){return '<option value="'+esc(n)+'" '+(filt.cpSchool===n?'selected':'')+'>'+esc(n)+'</option>';}).join('')+'</select>';
+    html+='<select id="filterCpPartner" class="search-box search-box-sm"><option value="">🤝 كل الجهات</option>'+
+      uniq(cpPartners).map(function(n){return '<option value="'+esc(n)+'" '+(filt.cpPartner===n?'selected':'')+'>'+esc(n)+'</option>';}).join('')+'</select>';
+    html+='<select id="filterCpActivity" class="search-box search-box-sm"><option value="">🎯 كل الفعاليات</option>'+
+      uniq(cpActivities).map(function(n){return '<option value="'+esc(n)+'" '+(filt.cpActivity===n?'selected':'')+'>'+esc(n)+'</option>';}).join('')+'</select>';
+    html+='<select id="filterCpLevel" class="search-box search-box-sm"><option value="">📍 كل مستويات المشاركة</option>'+
+      ['على مستوى المدرسة','على مستوى القطاع'].map(function(s){return '<option value="'+s+'" '+(filt.cpLevel===s?'selected':'')+'>'+s+'</option>';}).join('')+'</select>';
+    html+='<select id="filterCpAchv" class="search-box search-box-sm"><option value="">⭐ كل درجات الإنجاز</option>'+
+      ['منخفض','متوسط','مرتفع'].map(function(s){return '<option value="'+s+'" '+(filt.cpAchv===s?'selected':'')+'>'+s+'</option>';}).join('')+'</select>';
   }
   html+='</div>';
 
@@ -2141,6 +2173,13 @@ function bindModuleEvents(modId){
       render();
     };
   });
+  if(modId==='community_partnership'){
+    var cpS=document.getElementById('filterCpSchool'); if(cpS) cpS.onchange=function(){ filt.cpSchool=cpS.value; render(); };
+    var cpP=document.getElementById('filterCpPartner'); if(cpP) cpP.onchange=function(){ filt.cpPartner=cpP.value; render(); };
+    var cpA=document.getElementById('filterCpActivity'); if(cpA) cpA.onchange=function(){ filt.cpActivity=cpA.value; render(); };
+    var cpL=document.getElementById('filterCpLevel'); if(cpL) cpL.onchange=function(){ filt.cpLevel=cpL.value; render(); };
+    var cpAch=document.getElementById('filterCpAchv'); if(cpAch) cpAch.onchange=function(){ filt.cpAchv=cpAch.value; render(); };
+  }
 
   var addBtn=document.getElementById('btnAdd');
   if(addBtn) addBtn.onclick=function(){ openRecordModal(modId, null); };
@@ -3153,21 +3192,63 @@ var NATIONAL_EVENT_DESC={
   'اليوم الدولي للأسرة':'مناسبة أممية للتوعية بأهمية الأسرة في المجتمع.'
 };
 var ARABIC_MONTHS=['','يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+var SAUDI_NATIONAL_EVENTS=['اليوم الوطني السعودي','يوم التأسيس السعودي','يوم السعودية الخضراء','يوم العلم السعودي'];
+function daysUntil(month, day){
+  var today=new Date(); today.setHours(0,0,0,0);
+  var year=today.getFullYear();
+  var target=new Date(year, month-1, day);
+  if(target<today) target=new Date(year+1, month-1, day);
+  return Math.round((target-today)/(1000*60*60*24));
+}
 function renderNationalEventsView(){
   var db=APP.db;
   var mod=getModule('national_events');
   var html='';
   if(canEdit()) html+='<div class="toolbar" style="margin-bottom:16px"><button type="button" class="btn btn-primary" id="btnAddNewOccasion">➕ إضافة مناسبة جديدة</button></div>';
-  var eventNames=Object.keys(NATIONAL_EVENT_FIXED_DATES).sort(function(a,b){
-    var fa=NATIONAL_EVENT_FIXED_DATES[a], fb=NATIONAL_EVENT_FIXED_DATES[b];
-    var academicMonth=function(m){ return m>=9 ? m-9 : m+3; }; // ترتيب حسب بداية العام الدراسي (سبتمبر)
+
+  var otherRecords=db.records.filter(function(r){return r.category==='national_events' && !r.archived && !NATIONAL_EVENT_FIXED_DATES.hasOwnProperty(r.eventName);});
+  var customDatedNames=[];
+  otherRecords.forEach(function(r){
+    if(customDatedNames.indexOf(r.eventName)<0 && r.eventDate) customDatedNames.push(r.eventName);
+  });
+  var customUndated=[];
+  otherRecords.forEach(function(r){
+    if(customDatedNames.indexOf(r.eventName)<0 && customUndated.indexOf(r.eventName)<0) customUndated.push(r.eventName);
+  });
+
+  function monthDayOf(name){
+    if(NATIONAL_EVENT_FIXED_DATES[name]) return NATIONAL_EVENT_FIXED_DATES[name];
+    var rec=db.records.find(function(r){return r.category==='national_events' && r.eventName===name && r.eventDate;});
+    if(rec){ var dt=new Date(rec.eventDate); if(!isNaN(dt)) return {month:dt.getMonth()+1, day:dt.getDate()}; }
+    return null;
+  }
+
+  var nationalNames=SAUDI_NATIONAL_EVENTS.filter(function(n){return NATIONAL_EVENT_FIXED_DATES.hasOwnProperty(n);});
+  var restNames=Object.keys(NATIONAL_EVENT_FIXED_DATES).filter(function(n){return nationalNames.indexOf(n)<0;}).concat(customDatedNames);
+  restNames.sort(function(a,b){
+    var fa=monthDayOf(a), fb=monthDayOf(b);
+    var academicMonth=function(m){ return m>=9 ? m-9 : m+3; };
     return academicMonth(fa.month)-academicMonth(fb.month) || fa.day-fb.day;
   });
-  var otherRecords=db.records.filter(function(r){return r.category==='national_events' && !r.archived && !NATIONAL_EVENT_FIXED_DATES.hasOwnProperty(r.eventName);});
-  var otherEventNames=[];
-  otherRecords.forEach(function(r){ if(otherEventNames.indexOf(r.eventName)<0) otherEventNames.push(r.eventName); });
+  var orderedNames=nationalNames.concat(restNames).concat(customUndated);
 
-  eventNames.concat(otherEventNames).forEach(function(eventName){
+  /* عداد تنازلي لأقرب مناسبة */
+  var nearest=null;
+  orderedNames.forEach(function(name){
+    var md=monthDayOf(name);
+    if(!md) return;
+    var d=daysUntil(md.month, md.day);
+    if(!nearest || d<nearest.days) nearest={name:name, days:d};
+  });
+  if(nearest){
+    html+='<div class="panel" style="background:linear-gradient(120deg,#0C7A78,#10A9A6);color:#fff;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px">'+
+      '<div style="font-size:26px">⏳</div>'+
+      '<div><div style="font-size:12px;opacity:.9">أقرب مناسبة قادمة</div>'+
+      '<div style="font-family:Tajawal,sans-serif;font-weight:800;font-size:16px">'+esc(nearest.name)+' — بعد <span style="font-size:20px">'+nearest.days+'</span> يوم</div></div>'+
+    '</div>';
+  }
+
+  orderedNames.forEach(function(eventName){
     var fixed=NATIONAL_EVENT_FIXED_DATES[eventName];
     var records=db.records.filter(function(r){return r.category==='national_events' && !r.archived && r.eventName===eventName;});
     var dateLabel='';
