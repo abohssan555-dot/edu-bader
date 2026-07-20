@@ -2232,6 +2232,20 @@ function fieldInputHtml(f, val){
   return '<input type="text" name="'+f.key+'" value="'+esc(val)+'" '+(f.required?'required':'')+'>';
 }
 
+var NATIONAL_EVENT_FIXED_DATES={
+  'اليوم الوطني السعودي':{month:9, day:23},
+  'يوم التأسيس السعودي':{month:2, day:22},
+  'يوم السعودية الخضراء':{month:3, day:27},
+  'يوم العلم السعودي':{month:3, day:11},
+  'اليوم العالمي للصحة':{month:4, day:7},
+  'اليوم العالمي للتعلم':{month:1, day:24},
+  'يوم اللغة العربية العالمي':{month:12, day:18},
+  'اليوم العالمي للتسامح':{month:11, day:16},
+  'اليوم العالمي للطفل':{month:11, day:20},
+  'اليوم العالمي لذوي الإعاقة':{month:12, day:3},
+  'يوم المعلم العالمي':{month:10, day:5},
+  'اليوم الدولي للأسرة':{month:5, day:15}
+};
 async function openRecordModal(modId, recId){
   var mod=getModule(modId);
   if(mod.fields.some(function(f){return f.type==='provider';}) && !APP.assignableCache){
@@ -2247,6 +2261,21 @@ async function openRecordModal(modId, recId){
   html+='</form>';
   openModal(html);
   document.getElementById('modalCancel').onclick=closeModal;
+  if(modId==='national_events'){
+    var evSel=document.querySelector('#recForm [name="eventName"]');
+    var dateInp=document.querySelector('#recForm [name="eventDate"]');
+    if(evSel && dateInp){
+      evSel.onchange=function(){
+        var fixed=NATIONAL_EVENT_FIXED_DATES[evSel.value];
+        if(fixed){
+          var year=dateInp.value ? parseInt(dateInp.value.slice(0,4),10) : new Date().getFullYear();
+          var mm=String(fixed.month).padStart(2,'0'), dd=String(fixed.day).padStart(2,'0');
+          dateInp.value=year+'-'+mm+'-'+dd;
+        }
+      };
+      if(!recId) evSel.onchange();
+    }
+  }
   document.getElementById('recForm').onsubmit=async function(e){
     e.preventDefault();
     var form=e.target;
